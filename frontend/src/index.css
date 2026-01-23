@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+body {
+  margin: 0;
+  font-family: "Inter";
+  background: #f5f7fb;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  padding: 16px 24px;
+  gap: 16px;
+}
+
+.menu-icon {
+  width: 28px;
+}
+
+.user {
+  margin-left: auto;
+}
+
+.nav {
+  display: flex;
+  gap: 20px;
+  padding: 0 24px;
+}
+
+.nav-btn {
+  background: #e6eef8;
+  color: #0a4a92;
+  padding: 14px 20px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  min-width: 220px;
+}
+
+.nav-btn.active {
+  background: #0a4a92;
+  color: white;
+}
+
+.nav-btn img {
+  width: 22px;
+}
+
+.content {
+  padding: 24px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  height: 320px;
+  border: 1px solid #ddd;
+}
+
+.card-header {
+  background: #0a4a92;
+  padding: 12px;
+  border-radius: 16px 16px 0 0;
+  text-align: center;
+  font-weight: 600;
+}
