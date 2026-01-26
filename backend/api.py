@@ -9,9 +9,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# ==============================
 # CORS (WAJIB UNTUK FRONTEND)
-# ==============================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,21 +18,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ==============================
 # ROOT
-# ==============================
 @app.get("/")
 def home():
     return {"status": "Online", "message": "API Validasi berjalan"}
 
-# ==============================
 # MANPOWER API
-# ==============================
 @app.get("/validate/manpower")
 def api_validate_manpower(nik: str, name: str):
     payload = {
         "nik": nik,
-        "name": name   # ⚠️ HARUS "name", bukan "nama"
+        "name": name
     }
 
     success, message = handle_manpower(payload)
@@ -45,9 +39,7 @@ def api_validate_manpower(nik: str, name: str):
         "data": payload
     }
 
-# ==============================
 # PRODUCT API
-# ==============================
 @app.get("/validate/product")
 def api_validate_product(machine_name: str, name_product: str):
     payload = {

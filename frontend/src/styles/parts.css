@@ -85,6 +85,11 @@
   border-bottom: 1px solid #e0e0e0;
 }
 
+.parts-table th:last-child,
+.parts-table td:last-child {
+  text-align: center;
+}
+
 .parts-table th {
   font-weight: 600;
   font-size: 0.95rem;
@@ -96,6 +101,63 @@
 
 .parts-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+/* ===== ACTION BUTTONS ===== */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+}
+
+.action-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: white;
+}
+
+.action-btn:nth-child(1) {
+  background: #0b4a8b;
+}
+
+.action-btn:nth-child(1):hover {
+  background: #093a6d;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(11, 74, 139, 0.3);
+}
+
+.action-btn:nth-child(2) {
+  background: #ffc107;
+}
+
+.action-btn:nth-child(2):hover {
+  background: #e0a800;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(255, 193, 7, 0.3);
+}
+
+.action-btn:nth-child(3) {
+  background: #dc3545;
+}
+
+.action-btn:nth-child(3):hover {
+  background: #c82333;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 6px rgba(220, 53, 69, 0.3);
+}
+
+.action-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* ===== RESPONSIVE ===== */
@@ -117,5 +179,10 @@
   .parts-table td {
     padding: 10px 12px;
     font-size: 0.9rem;
+  }
+
+  .action-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
   }
 }

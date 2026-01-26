@@ -2,10 +2,10 @@ import json
 import psycopg2
 import paho.mqtt.client as mqtt
 from psycopg2.extras import RealDictCursor
+from contextlib import contextmanager
+import time
 
-# ==============================
 # DATABASE CONFIG
-# ==============================
 DB_CONFIG = {
     "host": "localhost",
     "dbname": "database_barcode",
@@ -14,50 +14,37 @@ DB_CONFIG = {
     "port": 5432
 }
 
-MACHINE_STATE = {
-    "WISE4050PNG": 0  # Default 0
-}
-def get_connection():
-    return psycopg2.connect(**DB_CONFIG)
+MQTT_BROKER = "192.168.1.205"
+MQTT_PORT = 1883
+TOPIC_MANPOWER = "data/manpower"
+TOPIC_PRODUCT = "data/product"
 
-# ==============================
 # DATABASE HELPERS
-# ==============================
-def fetch_one(query, params=None):
-    conn = get_connection()
+@contextmanager
+def db_session():
+    conn = psycopg2.connect(**DB_CONFIG)
     try:
+        yield conn
+    except Exception as e:
+        print(f"DATABASE ERROR: {e}")
+        raise
+    finally:
+        conn.close()
+
+def fetch_one(query, params=None):
+    with db_session() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(query, params)
             return cur.fetchone()
-    finally:
-        conn.close()
 
-def insert_log_manpower(nik, name, action):
-    conn = get_connection()
-    try:
+def execute_query(query, params=None):
+    with db_session() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO log_manpower (created_at, nik, name, action)
-                VALUES (NOW(), %s, %s, %s)
-            """, (nik, name, action))
+            cur.execute(query, params)
             conn.commit()
-    finally:
-        conn.close()
-
-def insert_log_product(machine, product, action, name_manpower):
-    conn = get_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO log_product (created_at, machine_name, name_product, action, name_manpower)
-                VALUES (NOW(), %s, %s, %s, %s)
-            """, (machine, product, action, name_manpower))
-            conn.commit()
-    finally:
-        conn.close()
 
 # ==============================
-# MANPOWER LOGIC
+# MANPOWER LOGIC (UPDATED)
 # ==============================
 def handle_manpower(data):
     nik = data.get("nik")
@@ -66,33 +53,84 @@ def handle_manpower(data):
     if not nik or not name:
         return False, "Field nik / name kosong"
 
-    # Validasi manpower
+    # 1. Validasi manpower
     row = fetch_one("SELECT nik, name FROM manpower WHERE nik=%s", (nik,))
     if not row or row["name"].lower() != name.lower():
         return False, "Manpower tidak valid"
 
-    # Ambil login terakhir
-    last_login = fetch_one("""
-        SELECT nik, name, action 
-        FROM log_manpower 
-        ORDER BY created_at DESC 
+    # 2. [LOGIKA BARU] Ambil status mesin sesuai permintaan
+    # Jika 1 = Status Login (Mesin ON)
+    # Jika 0 = Status Logout (Mesin OFF)
+    machine_log = fetch_one("""
+        SELECT * FROM log_machine
+        WHERE tag_name='WISE4050:PB_EMG'
+        ORDER BY created_at DESC
         LIMIT 1
     """)
+    
+    # Default ke 0 jika data belum ada
+    machine_status = int(machine_log["tag_value"]) if machine_log else 0
 
-    # Jika belum ada login / terakhir logout → login
+    # 3. Ambil status PRODUK TERAKHIR
+    last_product = fetch_one("""
+        SELECT machine_name, name_product, action, name_manpower 
+        FROM log_product 
+        ORDER BY created_at DESC LIMIT 1
+    """)
+
+    # 4. Ambil login terakhir manpower
+    last_login = fetch_one("""
+        SELECT nik, name, action FROM log_manpower 
+        ORDER BY created_at DESC LIMIT 1
+    """)
+
+    # --- KONDISI 1: MANPOWER INGIN LOGIN ---
     if not last_login or last_login["action"] == "logout":
-        insert_log_manpower(nik, name, "login")
+        
+        # ATURAN: Jika tag_value bernilai 1 (Login), manpower TIDAK boleh login.
+        # Manpower hanya boleh login jika tag_value 0 (Logout).
+        if machine_status == 1:
+            return False, "Gagal Login: WISE4050:PB_EMG (1). Harap matikan WISE4050:PB_EMG dulu."
+        
+        execute_query("""
+            INSERT INTO log_manpower (created_at, nik, name, action)
+            VALUES (NOW(), %s, %s, 'login')
+        """, (nik, name))
         return True, "Login berhasil"
 
-    # Jika terakhir login
+    # --- KONDISI 2: MANPOWER INGIN LOGOUT ---
     if last_login["action"] == "login":
-        if last_login["nik"] == nik and last_login["name"].lower() == name.lower():
-            insert_log_manpower(nik, name, "logout")
-            return True, "Logout berhasil"
-        return False, f"{last_login['name']} masih login, logout dulu"
+        if str(last_login["nik"]) != str(nik):
+            return False, f"Gagal: {last_login['name']} sedang login"
+        if machine_status == 0:
+            return False, "Gagal Logout: WISE4050:PB_EMG (0). Harap matikan WISE4050:PB_EMG dulu."
+
+        status_msg = "Logout berhasil"
+
+        # Cek apakah perlu Auto-Stop Product (Jika produk masih Start)
+        if last_product and last_product["action"].strip().lower() == "start":
+            execute_query("""
+                INSERT INTO log_product (created_at, machine_name, name_product, action, name_manpower)
+                VALUES (NOW(), %s, %s, 'stop', %s)
+            """, (
+                last_product['machine_name'], 
+                last_product['name_product'], 
+                last_product['name_manpower']
+            ))
+            status_msg += " & Product Auto-Stop tercatat"
+
+        # Eksekusi Logout Manpower
+        execute_query("""
+            INSERT INTO log_manpower (created_at, nik, name, action)
+            VALUES (NOW(), %s, %s, 'logout')
+        """, (nik, name))
+        
+        return True, status_msg
+
+    return False, "Status logic tidak dikenal"
 
 # ==============================
-# PRODUCT LOGIC
+# PRODUCT LOGIC (ORIGINAL)
 # ==============================
 def handle_product(data):
     machine = data.get("machine_name")
@@ -102,10 +140,7 @@ def handle_product(data):
         return False, "Data product tidak lengkap"
 
     # Validasi machine & product
-    row = fetch_one(
-        "SELECT name_product FROM product WHERE machine_name=%s",
-        (machine,)
-    )
+    row = fetch_one("SELECT name_product FROM product WHERE machine_name=%s", (machine,))
     if not row:
         return False, "Machine tidak terdaftar"
 
@@ -141,23 +176,27 @@ def handle_product(data):
         LIMIT 1
     """, (machine,))
 
-    if not last_product or last_product["action"].lower() == "stop":
-        action = "start"
-    else:
-        action = "stop"
+    action = "start" if not last_product or last_product["action"].lower() == "stop" else "stop"
 
-    insert_log_product(machine, product, action, name_manpower)
+    execute_query("""
+        INSERT INTO log_product (created_at, machine_name, name_product, action, name_manpower)
+        VALUES (NOW(), %s, %s, %s, %s)
+    """, (machine, product, action, name_manpower))
 
     return True, f"Product valid, action: {action}, manpower: {name_manpower}"
 
 # ==============================
-# MQTT CALLBACK
+# MQTT CALLBACKS
 # ==============================
-# ==============================
-# MQTT CALLBACK (UPDATED)
-# ==============================
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("✅ Server terhubung ke Broker!")
+        client.subscribe([(TOPIC_MANPOWER, 1), (TOPIC_PRODUCT, 1)])
+    else:
+        print(f"❌ Gagal konek, kode: {rc}")
+
 def on_message(client, userdata, msg):
-    print("\nTOPIC :", msg.topic)
+    print(f"\n📩 TOPIC : {msg.topic}")
 
     try:
         payload = json.loads(msg.payload.decode())
@@ -165,30 +204,32 @@ def on_message(client, userdata, msg):
         print("Payload bukan JSON")
         return
 
-    # ---------- MANPOWER ----------
-    if msg.topic == "data/manpower":
+    success = False
+    message = ""
+
+    # ---------- HANDLE MANPOWER ----------
+    if msg.topic == TOPIC_MANPOWER:
         success, message = handle_manpower(payload)
 
         if success:
-            # Jika Login -> Kirim value 1
-            if message == "Login berhasil":
-                val = 1
-            # Jika Logout -> Kirim value 0
-            elif message == "Logout berhasil":
-                val = 0
-            else:
-                val = None
+            # 1. Kirim Sinyal Manpower (Login=1, Logout=0)
+            val = 1 if "Login berhasil" in message else 0
+            client.publish(
+                "machine_01/cmd",
+                json.dumps({"w": [{"tag": "ManPower_Validation", "value": val}]}),
+                qos=1
+            )
 
-            if val is not None:
+            # 2. [AUTO-STOP] Jika terjadi Auto-Stop, kirim sinyal matikan produk
+            if "Auto-Stop" in message:
                 client.publish(
                     "machine_01/cmd",
-                    json.dumps({
-                        "w": [{"tag": "ManPower_Validation", "value": val}]
-                    }),
+                    json.dumps({"w": [{"tag": "Product_Validation", "value": 0}]}),
                     qos=1
                 )
+                print("⚠️ Command sent: Force Stop Product (Auto-Stop)")
 
-        # Feedback ke UI/Dashboard
+        # Feedback Dashboard
         client.publish(
             "data/feedback/manpower",
             json.dumps({
@@ -199,39 +240,22 @@ def on_message(client, userdata, msg):
             }),
             qos=1
         )
-        print(f"Feedback manpower: {payload.get('name')} -> {message}")
+        print(f"Feedback Manpower: {message}")
 
-    # ---------- PRODUCT ----------
-    elif msg.topic == "data/product":
+    # ---------- HANDLE PRODUCT ----------
+    elif msg.topic == TOPIC_PRODUCT:
         success, message = handle_product(payload)
 
         if success:
-            # Jika Start -> Kirim value 1
-            if "action: start" in message.lower():
-                val_prod = 1
-            # Jika Stop -> Kirim value 0
-            elif "action: stop" in message.lower():
-                val_prod = 0
-            else:
-                val_prod = None
+            val_prod = 1 if "action: start" in message.lower() else 0
+            client.publish(
+                "machine_01/cmd",
+                json.dumps({"w": [{"tag": "Product_Validation", "value": val_prod}]}),
+                qos=1
+            )
 
-            if val_prod is not None:
-                client.publish(
-                    "machine_01/cmd",
-                    json.dumps({
-                        "w": [{"tag": "Product_Validation", "value": val_prod}]
-                    }),
-                    qos=1
-                )
-
-        # Ambil data terakhir untuk feedback
-        product_info = fetch_one("""
-            SELECT machine_name, name_product 
-            FROM log_product 
-            ORDER BY created_at DESC
-            LIMIT 1
-        """)
-
+        product_info = fetch_one("SELECT machine_name, name_product FROM log_product ORDER BY created_at DESC LIMIT 1")
+        
         client.publish(
             "data/feedback/product",
             json.dumps({
@@ -242,28 +266,26 @@ def on_message(client, userdata, msg):
             }),
             qos=1
         )
-        print(f"Feedback product: {message}")
-        
+        print(f"Feedback Product: {message}")
+
 # ==============================
-# MQTT START
+# MAIN PROGRAM
 # ==============================
-MQTT_BROKER = "192.168.1.48"
-MQTT_PORT = 1883
-SUB_TOPICS = [("data/manpower", 1), ("data/product", 1), ("machine_01/data", 1)]
-
-client = mqtt.Client()
-client.on_message = on_message
-
-def on_connect(client, userdata, flags, rc):
-    print("Server terhubung ke Broker!")
-    client.subscribe(SUB_TOPICS)
-
-client.on_connect = on_connect
-
 if __name__ == "__main__":
+    client = mqtt.Client()
+    client.on_connect = on_connect
+    client.on_message = on_message
+
+    # Auto-reconnect setup
+    client.reconnect_delay_set(min_delay=1, max_delay=120)
+
     try:
+        print(f"🚀 Menghubungkan ke {MQTT_BROKER}...")
         client.connect(MQTT_BROKER, MQTT_PORT, 60)
-        print("🚀 MQTT server running, listening on data/manpower & data/product...")
         client.loop_forever()
+
+    except KeyboardInterrupt:
+        print("\n🛑 Server dihentikan secara manual (Ctrl+C)")
+        client.disconnect()
     except Exception as e:
-        print("Could not connect to MQTT:", e)
+        print(f"💥 Fatal Error: {e}")

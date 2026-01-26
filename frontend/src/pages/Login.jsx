@@ -1,134 +1,173 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import "../styles/login.css";
-// 1. Import fungsi dari api.js
-import { validateManpower } from "../services/api.js"; 
 
-export default function Login({ onLogin }) { // Tambahkan prop onLogin dari App.jsx
+export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
-
-  // username akan dikirim sebagai 'nama', password akan dikirim sebagai 'nik'
-  const [username, setUsername] = useState(""); 
-  const [password, setPassword] = useState(""); 
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
   const [error, setError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
-  const [registerSuccess, setRegisterSuccess] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const pollRef = useRef(null);
-
-  // Fungsi navigasi yang disesuaikan dengan state App.jsx
-  const goDashboard = () => {
-    localStorage.setItem("auth", "true");
-    onLogin(); // Memanggil handleLogin di App.jsx untuk merubah state isAuth
-  };
-
-  const stopPolling = () => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  };
-
-  // ===== LOGIN (MENGGUNAKAN API.JS) =====
-  const handleLogin = async (e) => {
+  const handleRegister = (e) => {
     e.preventDefault();
     setError("");
-    setRegisterSuccess("");
+    setSuccess("");
 
-    if (!username || !password) {
-      setError("Username (Nama) dan Password (NIK) harus diisi");
+    if (!username || !password || !confirmPassword) {
+      setError("Semua field harus diisi");
       return;
     }
-    try {
-      // Pastikan urutan: (nik, nama) sesuai definisi di api.js
-      const result = await validateManpower(password, username); 
+
+    if (password !== confirmPassword) {
+      setError("Password tidak cocok");
+      return;
+    }
+
+    if (password.length < 4) {
+      setError("Password minimal 4 karakter");
+      return;
+    }
+
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
     
-      if (result.success) { // Cek "success" sesuai output JSON backend Anda
-        stopPolling();
-        setSuccessMsg("Login Berhasil!");
-        setTimeout(() => {
-          goDashboard();
-        }, 1000);
-      } else {
-        setError(result.message || "Login Gagal");
-      }
-    } catch (err) {
-      setError("Gagal terhubung ke server. Pastikan Backend sudah jalan & CORS aktif.");
+    if (users.find(u => u.username === username)) {
+      setError("Username sudah terdaftar");
+      return;
+    }
+
+    users.push({ username, password });
+    localStorage.setItem("users", JSON.stringify(users));
+    
+    setSuccess("Akun berhasil dibuat! Silakan login.");
+    setUsername("");
+    setPassword("");
+    setConfirmPassword("");
+    
+    setTimeout(() => {
+      setIsRegister(false);
+      setSuccess("");
+    }, 2000);
+  };
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (!username || !password) {
+      setError("Username dan password harus diisi");
+      return;
+    }
+
+    if (username === "admin" && password === "admin") {
+      localStorage.setItem("auth", "true");
+      window.location.reload();
+      return;
+    }
+
+    const users = JSON.parse(localStorage.getItem("users") || "[]");
+    const user = users.find(u => u.username === username && u.password === password);
+
+    if (user) {
+      localStorage.setItem("auth", "true");
+      window.location.reload();
+    } else {
+      setError("Username atau password salah");
     }
   };
-
-  // ===== REGISTER & QR POLLING (Placeholder / Tetap) =====
-  // Note: Karena backend saat ini hanya mendukung validasi, 
-  // bagian ini tetap dibiarkan atau bisa Anda sesuaikan nanti.
-  
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError("Fitur Register belum tersambung ke Database.");
-  };
-
-  const startListeningQr = () => {
-    // Polling QR tetap berjalan jika backend mendukung endpoint /qr/status
-    // Jika tidak ada, fungsi ini bisa dikosongkan untuk testing login saja
-  };
-
-  useEffect(() => {
-    startListeningQr();
-    return () => stopPolling();
-  }, []);
 
   return (
     <div className="login-container">
-      <h1 className="brand-title">ANDALAN SYSTEM</h1>
+      <h1 className="brand-title">ENTER THE BRAND NAME HERE</h1>
       <p className="subtitle">
-        {isRegister ? "Create your account" : "Sign in with your Name and NIK"}
+        {isRegister ? "Create your account" : "Sign in to start your new session"}
       </p>
 
-      {successMsg && <p className="success-text" style={{ textAlign: "center", color: "green" }}>{successMsg}</p>}
-
-      {!isRegister ? (
-        <form className="form" onSubmit={handleLogin}>
-          <label>Username (Nama Lengkap)</label>
+      {isRegister && (
+        <form className="form" onSubmit={handleRegister}>
+          <label>Username</label>
           <input
             type="text"
-            placeholder="Masukkan Nama"
+            placeholder="Enter username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
           />
 
-          <label>Password (NIK)</label>
+          <label>Password</label>
           <input
             type="password"
-            placeholder="Masukkan NIK"
+            placeholder="Enter password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
+          />
+
+          <label>Confirm Password</label>
+          <input
+            type="password"
+            placeholder="Re-enter password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+
+          {error && <p className="error-text">{error}</p>}
+          {success && <p className="success-text">{success}</p>}
+
+          <button type="submit" className="login-btn">
+            Create Account
+          </button>
+
+          <button 
+            type="button" 
+            className="signin-btn"
+            onClick={() => {
+              setIsRegister(false);
+              setError("");
+              setSuccess("");
+              setUsername("");
+              setPassword("");
+              setConfirmPassword("");
+            }}
+          >
+            Back to Login
+          </button>
+        </form>
+      )}
+
+      {!isRegister && (
+        <form className="form" onSubmit={handleLogin}>
+          <label>Username</label>
+          <input
+            type="text"
+            placeholder="User"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+
+          <label>Password</label>
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
 
           {error && <p className="error-text">{error}</p>}
 
-          <button type="submit" className="login-btn">Login</button>
-
-          <button
-            type="button"
-            className="signin-btn"
-            onClick={() => setIsRegister(true)}
-          >
-            Sign Up / Register
+          <button type="submit" className="login-btn">
+            Login
           </button>
-        </form>
-      ) : (
-        <form className="form" onSubmit={handleRegister}>
-          {/* Form Register tetap seperti kode asli Anda */}
-          <label>Username</label>
-          <input type="text" placeholder="Enter username" />
-          <label>Password</label>
-          <input type="password" placeholder="Enter password" />
-          {error && <p className="error-text">{error}</p>}
-          <button type="submit" className="login-btn">Create Account</button>
-          <button type="button" className="signin-btn" onClick={() => setIsRegister(false)}>
-            Back to Login
+
+          <button 
+            type="button" 
+            className="signin-btn"
+            onClick={() => {
+              setIsRegister(true);
+              setError("");
+              setUsername("");
+              setPassword("");
+            }}
+          >
+            Sign Up
           </button>
         </form>
       )}
