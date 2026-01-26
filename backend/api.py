@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 # import LANGSUNG dari main.py
-from backend.main import handle_manpower, handle_product
+from main import handle_manpower, handle_product
 
 app = FastAPI(
     title="API Monitoring Produksi & Manpower",

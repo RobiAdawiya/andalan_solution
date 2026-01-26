@@ -1,5 +1,5 @@
 # andalan_solution/backend/Dockerfile
-FROM python:3.10-sli
+FROM python:3.10-slim
 
 # Set working directory
 WORKDIR /app
@@ -22,4 +22,4 @@ EXPOSE 8000
 # JALANKAN DUA PROSES SEKALIGUS (MQTT Client & API Server)
 # "python main.py &" -> jalan di background
 # "uvicorn ..." -> jalan di foreground agar container tidak exit
-CMD ["sh", "-c", "python main.py & uvicorn api:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "python main.py & uvicorn api:app --reload"]
