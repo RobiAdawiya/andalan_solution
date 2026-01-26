@@ -1,4 +1,4 @@
-# Gunakan base image Python
+# andalan_solution/backend/Dockerfile
 FROM python:3.10-sli
 
 # Set working directory
