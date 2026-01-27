@@ -20,7 +20,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- KONFIGURASI DATABASE ---
+# KONFIGURASI DATABASE
 DB_CONFIG = {
     "host": "localhost",
     "database": "database_barcode",
@@ -54,9 +54,8 @@ def get_product_logs():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        # Mengambil machine_name, name_product, action, name_manpower
         query = """
-            SELECT machine_name, name_product, action, name_manpower, created_at 
+            SELECT id, machine_name, name_product, action, name_manpower, created_at 
             FROM log_product 
             ORDER BY created_at DESC
         """
@@ -74,11 +73,11 @@ def get_machine_logs():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        # Mengambil machine_id, tag_name, tag_value
         query = """
             SELECT machine_id, tag_name, tag_value, created_at 
             FROM log_machine 
             ORDER BY created_at DESC
+            LIMIT 100
         """
         cur.execute(query)
         logs = cur.fetchall()
@@ -87,6 +86,40 @@ def get_machine_logs():
         return logs
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+# 4. MASTER DATA MANPOWER
+@app.get("/manpower")
+def get_all_manpower():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        query = "SELECT name, nik, position, department FROM manpower ORDER BY name ASC"
+        cur.execute(query)
+        data = cur.fetchall()
+        cur.close()
+        conn.close()
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mengambil master data manpower: {str(e)}")
+    
+# 5. GET PRODUCT LIST (MASTER DATA PRODUCT)
+@app.get("/product")
+def get_all_products():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Mengambil data dari tabel master product (asumsi nama tabel: product)
+        query = "SELECT machine_name, name_product FROM product ORDER BY name_product ASC"
+        cur.execute(query)
+        data = cur.fetchall()
+        
+        cur.close()
+        conn.close()
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Gagal mengambil master data produk: {str(e)}")
+
 
 # --- ENDPOINTS VALIDATION (EXISTING) ---
 

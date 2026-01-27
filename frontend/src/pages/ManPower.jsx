@@ -1,14 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, Edit, Trash2, X } from "lucide-react";
 import QRCode from "qrcode";
-import { saveAs } from "file-saver";
+import { jsPDF } from "jspdf";
 import searchIcon from "../assets/search.png";
 import "../styles/manpower.css";
+import { getManpowerList, getManpowerLogs } from "../services/api";
 
 export default function ManPower() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false); // State Modal Tambah
   const [editingPerson, setEditingPerson] = useState(null);
+
+  // State Formulir Tambah
+  const [addForm, setAddForm] = useState({
+    name: "",
+    nik: "",
+    department: "Engineering",
+    position: "",
+    status: "logout"
+  });
 
   const [showQrModal, setShowQrModal] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
@@ -16,151 +27,136 @@ export default function ManPower() {
   const [qrError, setQrError] = useState("");
   const [qrGenerating, setQrGenerating] = useState(false);
 
-  const [manPowerData, setManPowerData] = useState([
-    { id: 1, no: 1, nama: "John Doe", nik: "12345", department: "Engineering", position: "Technician", status: "Active" },
-    { id: 2, no: 2, nama: "Jane Smith", nik: "12346", department: "Maintenance", position: "Supervisor", status: "Active" },
-    { id: 3, no: 3, nama: "Bob Johnson", nik: "12347", department: "Operations", position: "Operator", status: "Inactive" },
-    { id: 4, no: 4, nama: "Alice Brown", nik: "12348", department: "Engineering", position: "Engineer", status: "Active" },
-    { id: 5, no: 5, nama: "Charlie Wilson", nik: "12349", department: "Maintenance", position: "Technician", status: "Active" },
-  ]);
+  const [manPowerData, setManPowerData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // --- LOGIC INTEGRASI API ---
+  useEffect(() => {
+    const loadAllData = async () => {
+      try {
+        setLoading(true);
+        const [masterList, logs] = await Promise.all([
+          getManpowerList(),
+          getManpowerLogs()
+        ]);
+
+        const mergedData = masterList.map((person, index) => {
+          const lastLog = logs.find(log => String(log.nik) === String(person.nik));
+          return {
+            id: index + 1,
+            no: index + 1,
+            name: person.name || "N/A",
+            nik: person.nik,
+            department: person.department || "Unassigned",
+            position: person.position || "Staff",
+            status: lastLog ? lastLog.action : "logout"
+          };
+        });
+
+        setManPowerData(mergedData);
+      } catch (error) {
+        console.error("Gagal memuat data manpower:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAllData();
+  }, []);
+
+  // Filter dengan perlindungan nilai null/undefined
   const filteredManPower = manPowerData.filter(person =>
-    person.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    person.nik.includes(searchQuery)
+    (person.name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (String(person.nik || "").includes(searchQuery))
   );
 
+  // --- LOGIKA ADD MAN POWER ---
   const handleAddManPower = () => {
-    console.log("Add man power clicked");
+    setAddForm({
+      name: "",
+      nik: "",
+      department: "Engineering",
+      position: "",
+      status: "logout"
+    });
+    setShowAddModal(true);
   };
 
-  const sanitizeFilePart = (s) =>
-    String(s || "")
-      .trim()
-      .replace(/\s+/g, "_")
-      .replace(/[^\w\-]+/g, "_");
+  const handleSaveAdd = () => {
+    if (!addForm.name || !addForm.nik || !addForm.department || !addForm.position) {
+      alert("Harap isi semua kolom yang wajib!");
+      return;
+    }
 
-  const handleDownloadWord = () => {
+    // Cek duplikasi NIK di local state
+    const isDuplicate = manPowerData.some(p => String(p.nik) === String(addForm.nik));
+    if (isDuplicate) {
+      alert("NIK sudah terdaftar!");
+      return;
+    }
+
+    const newId = manPowerData.length > 0 ? Math.max(...manPowerData.map(p => p.id)) + 1 : 1;
+    const newPerson = {
+      ...addForm,
+      id: newId,
+      no: newId
+    };
+
+    setManPowerData([...manPowerData, newPerson]);
+    setShowAddModal(false);
+    alert("Data berhasil ditambahkan!");
+  };
+
+  // --- LOGIKA PDF & QR ---
+  const sanitizeFilePart = (s) => String(s || "").trim().replace(/\s+/g, "_").replace(/[^\w\-]+/g, "_");
+
+  const handleDownloadPDF = () => {
     try {
       if (!qrPayload || !qrDataUrl) return;
-
-      const nikPart = sanitizeFilePart(qrPayload.nik);
-      const namaPart = sanitizeFilePart(qrPayload.nama);
-      const idPart = sanitizeFilePart(qrPayload.id);
-      const filename = `QR_${nikPart}_${namaPart}_${idPart}.doc`;
-
-      const html = `<!DOCTYPE html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office"
-      xmlns:w="urn:schemas-microsoft-com:office:word"
-      xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-  <meta charset="utf-8">
-  <title>QR</title>
-  <!-- supaya Word baca ini sebagai dokumen -->
-  <!--[if gte mso 9]>
-  <xml>
-    <w:WordDocument>
-      <w:View>Print</w:View>
-      <w:Zoom>100</w:Zoom>
-      <w:DoNotOptimizeForBrowser/>
-    </w:WordDocument>
-  </xml>
-  <![endif]-->
-  <style>
-    @page { margin: 1in; }
-    body { margin: 0; padding: 0; }
-    .wrap { width: 100%; text-align: center; margin-top: 20px; }
-    img { width: 320px; height: 320px; }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <img src="${qrDataUrl}" />
-  </div>
-</body>
-</html>`;
-
-      const blob = new Blob([html], { type: "application/msword;charset=utf-8" });
-      saveAs(blob, filename);
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      doc.setFontSize(16);
+      doc.text("MANPOWER QR CODE", 105, 20, { align: "center" });
+      doc.setFontSize(12);
+      doc.text(`Nama: ${qrPayload.name}`, 20, 40);
+      doc.text(`NIK : ${qrPayload.nik}`, 20, 47);
+      doc.addImage(qrDataUrl, "PNG", 55, 60, 100, 100);
+      doc.save(`QR_${sanitizeFilePart(qrPayload.nik)}.pdf`);
     } catch (err) {
-      console.error(err);
-      alert("Gagal membuat file Word.");
+      alert("Gagal membuat PDF.");
     }
   };
 
   const handleViewQR = async (person) => {
     try {
-      setQrError("");
-      setQrDataUrl("");
-      setQrGenerating(true);
-
-      const payload = {
-        id: String(person.id),
-        nik: String(person.nik),
-        nama: String(person.nama),
-      };
-
+      setQrError(""); setQrDataUrl(""); setQrGenerating(true); setShowQrModal(true);
+      const payload = { id: String(person.id), nik: String(person.nik), name: String(person.name) };
       setQrPayload(payload);
-
-      const jsonString = JSON.stringify(payload);
-
-      const dataUrl = await QRCode.toDataURL(jsonString, {
-        margin: 2,
-        width: 320,
-        errorCorrectionLevel: "M",
-      });
-
+      const dataUrl = await QRCode.toDataURL(JSON.stringify(payload), { margin: 2, width: 320 });
       setQrDataUrl(dataUrl);
-      setShowQrModal(true);
     } catch (err) {
-      console.error(err);
       setQrError("Gagal generate QR Code.");
-      setShowQrModal(true);
     } finally {
       setQrGenerating(false);
     }
   };
 
-  const handleCloseQrModal = () => {
-    setShowQrModal(false);
-    setQrDataUrl("");
-    setQrPayload(null);
-    setQrError("");
-    setQrGenerating(false);
-  };
-
-  const handleEdit = (person) => {
-    setEditingPerson({ ...person });
-    setShowEditModal(true);
-  };
+  const handleCloseQrModal = () => setShowQrModal(false);
+  const handleEdit = (person) => { setEditingPerson({ ...person }); setShowEditModal(true); };
+  const handleCancelEdit = () => { setShowEditModal(false); setEditingPerson(null); };
 
   const handleSaveEdit = () => {
-    if (!editingPerson.nama || !editingPerson.nik || !editingPerson.department || !editingPerson.position) {
-      alert("Semua field harus diisi!");
-      return;
-    }
-
-    setManPowerData(manPowerData.map(person =>
-      person.id === editingPerson.id ? editingPerson : person
-    ));
+    if (!editingPerson.name || !editingPerson.nik) return alert("Data tidak lengkap!");
+    setManPowerData(manPowerData.map(p => p.id === editingPerson.id ? editingPerson : p));
     setShowEditModal(false);
-    setEditingPerson(null);
-  };
-
-  const handleCancelEdit = () => {
-    setShowEditModal(false);
-    setEditingPerson(null);
   };
 
   const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this person?")) {
-      setManPowerData(manPowerData.filter(person => person.id !== id));
+    if (window.confirm("Hapus data ini?")) {
+      setManPowerData(manPowerData.filter(p => p.id !== id));
     }
   };
 
   const handleStatusChange = (id, newStatus) => {
-    setManPowerData(manPowerData.map(person =>
-      person.id === id ? { ...person, status: newStatus } : person
-    ));
+    setManPowerData(manPowerData.map(p => p.id === id ? { ...p, status: newStatus } : p));
   };
 
   return (
@@ -176,195 +172,148 @@ export default function ManPower() {
             className="search-input"
           />
         </div>
-
         <button className="add-manpower-btn" onClick={handleAddManPower}>
           Add Man Power
         </button>
       </div>
 
       <div className="table-container">
-        <table className="manpower-table">
-          <thead>
-            <tr>
-              <th>No.</th>
-              <th>Nama</th>
-              <th>NIK</th>
-              <th>Department</th>
-              <th>Position</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredManPower.map((person) => (
-              <tr key={person.id}>
-                <td>{person.no}</td>
-                <td>{person.nama}</td>
-                <td>{person.nik}</td>
-                <td>{person.department}</td>
-                <td>{person.position}</td>
-                <td>
-                  <select
-                    value={person.status}
-                    onChange={(e) => handleStatusChange(person.id, e.target.value)}
-                    className={`status-select status-${person.status.toLowerCase()}`}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </td>
-                <td>
-                  <div className="action-buttons">
-                    <button
-                      className="action-btn view-btn"
-                      onClick={() => handleViewQR(person)}
-                      title="View QR Code"
-                    >
-                      <span>View QR</span>
-                      <Eye size={18} />
-                    </button>
-                    <button
-                      className="action-btn edit-btn"
-                      onClick={() => handleEdit(person)}
-                      title="Edit"
-                    >
-                      <span>Edit</span>
-                      <Edit size={18} />
-                    </button>
-                    <button
-                      className="action-btn delete-btn"
-                      onClick={() => handleDelete(person.id)}
-                      title="Delete"
-                    >
-                      <span>Delete</span>
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </td>
+        {loading ? <p style={{ textAlign: "center" }}>Loading...</p> : (
+          <table className="manpower-table">
+            <thead>
+              <tr>
+                <th>No.</th><th>Name</th><th>NIK</th><th>Department</th><th>Position</th><th>Status</th><th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredManPower.map((person) => (
+                <tr key={person.id}>
+                  <td>{person.no}</td>
+                  <td>{person.name}</td>
+                  <td>{person.nik}</td>
+                  <td>{person.department}</td>
+                  <td>{person.position}</td>
+                  <td>
+                    <select
+                      value={person.status}
+                      onChange={(e) => handleStatusChange(person.id, e.target.value)}
+                      className={`status-select status-${person.status}`}
+                    >
+                      <option value="login">login</option>
+                      <option value="logout">logout</option>
+                    </select>
+                  </td>
+                  <td>
+                    <div className="action-buttons">
+                      <button className="action-btn view-btn" onClick={() => handleViewQR(person)}><Eye size={18} /></button>
+                      <button className="action-btn edit-btn" onClick={() => handleEdit(person)}><Edit size={18} /></button>
+                      <button className="action-btn delete-btn" onClick={() => handleDelete(person.id)}><Trash2 size={18} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      {showQrModal && (
+      {/* --- MODAL ADD --- */}
+      {showAddModal && (
         <>
-          <div className="modal-overlay" onClick={handleCloseQrModal}></div>
+          <div className="modal-overlay" onClick={() => setShowAddModal(false)}></div>
           <div className="modal">
             <div className="modal-header">
-              <h2>QR Code</h2>
-              <button className="modal-close" onClick={handleCloseQrModal}>
-                <X size={24} />
-              </button>
+              <h2>Add New Man Power</h2>
+              <button onClick={() => setShowAddModal(false)}><X size={24} /></button>
             </div>
-
-            <div className="modal-body" style={{ textAlign: "center" }}>
-              {qrError ? (
-                <p className="error-text">{qrError}</p>
-              ) : qrGenerating ? (
-                <p>Generating QR...</p>
-              ) : (
-                qrDataUrl && (
-                  <img
-                    src={qrDataUrl}
-                    alt="QR Code"
-                    style={{ width: 320, maxWidth: "100%", borderRadius: 8 }}
-                  />
-                )
-              )}
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Name</label>
+                <input type="text" value={addForm.name} onChange={(e) => setAddForm({...addForm, name: e.target.value})} className="form-input" placeholder="Full Name" />
+              </div>
+              <div className="form-group">
+                <label>NIK</label>
+                <input type="text" value={addForm.nik} onChange={(e) => setAddForm({...addForm, nik: e.target.value})} className="form-input" placeholder="NIK Number" />
+              </div>
+              <div className="form-group">
+                <label>Department</label>
+                <select value={addForm.department} onChange={(e) => setAddForm({...addForm, department: e.target.value})} className="form-input">
+                  <option value="Engineering">Engineering</option>
+                  <option value="Maintenance">Maintenance</option>
+                  <option value="Operations">Operations</option>
+                  <option value="Data Science">Data Science</option>
+                  <option value="Logistic">Logistic</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Position</label>
+                <input type="text" value={addForm.position} onChange={(e) => setAddForm({...addForm, position: e.target.value})} className="form-input" placeholder="Job Position" />
+              </div>
             </div>
-
             <div className="modal-footer">
-              <button className="btn-cancel" onClick={handleCloseQrModal}>
-                Close
-              </button>
-
-              {qrDataUrl && !qrError && (
-                <button className="btn-save" onClick={handleDownloadWord}>
-                  Download Word
-                </button>
-              )}
+              <button className="btn-cancel" onClick={() => setShowAddModal(false)}>Cancel</button>
+              <button className="btn-save" onClick={handleSaveAdd}>Save Man Power</button>
             </div>
           </div>
         </>
       )}
 
+      {/* --- MODAL QR --- */}
+      {showQrModal && (
+        <>
+          <div className="modal-overlay" onClick={handleCloseQrModal}></div>
+          <div className="modal">
+            <div className="modal-header">
+              <h2>QR Code PDF</h2>
+              <button onClick={handleCloseQrModal}><X size={24} /></button>
+            </div>
+            <div className="modal-body" style={{ textAlign: "center" }}>
+              {qrGenerating ? <p>Generating...</p> : qrDataUrl && <img src={qrDataUrl} alt="QR" style={{ width: 300 }} />}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={handleCloseQrModal}>Close</button>
+              <button className="btn-save" onClick={handleDownloadPDF}>Download PDF</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* --- MODAL EDIT --- */}
       {showEditModal && editingPerson && (
         <>
           <div className="modal-overlay" onClick={handleCancelEdit}></div>
           <div className="modal">
             <div className="modal-header">
               <h2>Edit Man Power</h2>
-              <button className="modal-close" onClick={handleCancelEdit}>
-                <X size={24} />
-              </button>
+              <button onClick={handleCancelEdit}><X size={24} /></button>
             </div>
-
             <div className="modal-body">
               <div className="form-group">
-                <label>Nama</label>
-                <input
-                  type="text"
-                  value={editingPerson.nama}
-                  onChange={(e) => setEditingPerson({ ...editingPerson, nama: e.target.value })}
-                  className="form-input"
-                />
+                <label>Name</label>
+                <input type="text" value={editingPerson.name} onChange={(e) => setEditingPerson({ ...editingPerson, name: e.target.value })} className="form-input" />
               </div>
-
               <div className="form-group">
                 <label>NIK</label>
-                <input
-                  type="text"
-                  value={editingPerson.nik}
-                  onChange={(e) => setEditingPerson({ ...editingPerson, nik: e.target.value })}
-                  className="form-input"
-                />
+                <input type="text" value={editingPerson.nik} onChange={(e) => setEditingPerson({ ...editingPerson, nik: e.target.value })} className="form-input" />
               </div>
-
               <div className="form-group">
                 <label>Department</label>
-                <select
-                  value={editingPerson.department}
-                  onChange={(e) => setEditingPerson({ ...editingPerson, department: e.target.value })}
-                  className="form-input"
-                >
-                  <option value="Engineering">Engineering</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Operations">Operations</option>
-                  <option value="Quality">Quality</option>
+                <select value={editingPerson.department} onChange={(e) => setEditingPerson({ ...editingPerson, department: e.target.value })} className="form-input">
+                   <option value="Engineering">Engineering</option>
+                   <option value="Maintenance">Maintenance</option>
+                   <option value="Operations">Operations</option>
+                   <option value="Data Science">Data Science</option>
+                   <option value="Logistic">Logistic</option>
                 </select>
               </div>
-
               <div className="form-group">
                 <label>Position</label>
-                <input
-                  type="text"
-                  value={editingPerson.position}
-                  onChange={(e) => setEditingPerson({ ...editingPerson, position: e.target.value })}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Status</label>
-                <select
-                  value={editingPerson.status}
-                  onChange={(e) => setEditingPerson({ ...editingPerson, status: e.target.value })}
-                  className="form-input"
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
+                <input type="text" value={editingPerson.position} onChange={(e) => setEditingPerson({ ...editingPerson, position: e.target.value })} className="form-input" />
               </div>
             </div>
-
             <div className="modal-footer">
-              <button className="btn-cancel" onClick={handleCancelEdit}>
-                Cancel
-              </button>
-              <button className="btn-save" onClick={handleSaveEdit}>
-                Save Changes
-              </button>
+              <button className="btn-cancel" onClick={handleCancelEdit}>Cancel</button>
+              <button className="btn-save" onClick={handleSaveEdit}>Save Changes</button>
             </div>
           </div>
         </>

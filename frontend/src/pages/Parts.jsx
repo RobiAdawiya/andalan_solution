@@ -1,139 +1,194 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Trash2, Edit, QrCode } from "lucide-react";
 import QRCode from "qrcode";
-import { saveAs } from "file-saver";
 import searchIcon from "../assets/search.png";
 import "../styles/parts.css";
+import jsPDF from "jspdf";
+// Import fungsi API
+import { getProductLogs } from "../services/api"; 
 
 export default function Parts() {
+  // --- STATE MANAGEMENT ---
   const [searchQuery, setSearchQuery] = useState("");
-
+  const [loading, setLoading] = useState(true);
+  const [partsData, setPartsData] = useState([]);
+  
+  // Modal States
   const [showQrModal, setShowQrModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  
+  // QR & PDF States
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [qrPayload, setQrPayload] = useState(null);
   const [qrError, setQrError] = useState("");
   const [qrGenerating, setQrGenerating] = useState(false);
+  
+  // Editing States
+  const [editingPart, setEditingPart] = useState(null);
+  
+  // Form States (Tetap dipertahankan strukturnya)
+  const [editForm, setEditForm] = useState({
+    name: "",
+    woNumber: "",
+    startDate: "",
+    endDate: "",
+    status: "Working",
+    manpower: ""
+  });
+  
+  const [addForm, setAddForm] = useState({
+    name: "",
+    woNumber: "",
+    startDate: "",
+    endDate: "",
+    status: "Working",
+    manpower: ""
+  });
 
-  const partsData = [
-    { no: 1, nama: "Bearing", kode: "BRG-001", stok: 150, satuan: "Pcs" },
-    { no: 2, nama: "Belt", kode: "BLT-002", stok: 80, satuan: "Meter" },
-    { no: 3, nama: "Oil Filter", kode: "OFL-003", stok: 200, satuan: "Pcs" },
-    { no: 4, nama: "Gasket", kode: "GSK-004", stok: 300, satuan: "Pcs" },
-    { no: 5, nama: "Bolt M10", kode: "BLT-005", stok: 500, satuan: "Pcs" },
-  ];
+  // --- 1. FETCH DATA DARI API (LOG PRODUCT) ---
+  useEffect(() => {
+    fetchParts();
+  }, []);
 
+  const fetchParts = async () => {
+    try {
+      setLoading(true);
+      const data = await getProductLogs();
+      
+      const mappedData = data.map((item, index) => {
+        // Ambil tanggal dari created_at
+        const logDate = item.created_at ? new Date(item.created_at).toISOString().split('T')[0] : "";
+        
+        return {
+          id: item.id || index,
+          no: index + 1,
+          name: item.name_product || "N/A",      // Mapping: Name
+          woNumber: item.machine_name || "N/A",
+          startDate: logDate,                    // Mapping: created_at
+          endDate: logDate,                      // Mapping: created_at
+          status: item.action || "Working",      // Mapping: action
+          manpower: item.name_manpower || "-"    // Mapping: Replace isClosed
+        };
+      });
+      
+      setPartsData(mappedData);
+    } catch (error) {
+      console.error("Gagal mengambil data log:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- 2. LOGIKA FILTER SEARCH ---
   const filteredParts = partsData.filter(
     (part) =>
-      part.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      part.kode.toLowerCase().includes(searchQuery.toLowerCase())
+      part.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      part.woNumber.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // --- 3. ADD PART HANDLERS ---
   const handleAddPart = () => {
-    console.log("Add part clicked");
+    const today = new Date().toISOString().split('T')[0];
+    setAddForm({
+      name: "",
+      woNumber: "",
+      startDate: today,
+      endDate: today,
+      status: "Working",
+      manpower: ""
+    });
+    setShowAddModal(true);
   };
 
+  const handleAddFormChange = (field, value) => {
+    setAddForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveAdd = async () => {
+    if (!addForm.name || !addForm.woNumber) {
+      alert("Mohon isi field yang diperlukan!");
+      return;
+    }
+    
+    // Logic Simpan (Lokal + Placeholder API)
+    const newNo = partsData.length > 0 ? Math.max(...partsData.map(p => p.no)) + 1 : 1;
+    const newPart = { ...addForm, no: newNo };
+    
+    setPartsData(prev => [newPart, ...prev]);
+    setShowAddModal(false);
+    alert("Part berhasil ditambahkan!");
+  };
+
+  // --- 4. EDIT PART HANDLERS ---
   const handleEdit = (part) => {
-    console.log("Edit part:", part);
+    setEditingPart(part);
+    setEditForm({
+      name: part.name,
+      woNumber: part.woNumber,
+      startDate: part.startDate,
+      endDate: part.endDate,
+      status: part.status,
+      manpower: part.manpower
+    });
+    setShowEditModal(true);
   };
 
+  const handleEditFormChange = (field, value) => {
+    setEditForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveEdit = () => {
+    setPartsData(prevData =>
+      prevData.map(part =>
+        part.no === editingPart.no ? { ...part, ...editForm } : part
+      )
+    );
+    setShowEditModal(false);
+    alert("Data berhasil diperbarui!");
+  };
+
+  // --- 5. DELETE HANDLER ---
   const handleDelete = (part) => {
-    console.log("Delete part:", part);
+    if (window.confirm(`Hapus ${part.name}?`)) {
+      setPartsData(prevData => prevData.filter(p => p.no !== part.no));
+    }
   };
 
+  // --- 6. QR & PDF LOGIC (FULL) ---
   const sanitizeFilePart = (s) =>
-    String(s || "")
-      .trim()
-      .replace(/\s+/g, "_")
-      .replace(/[^\w\-]+/g, "_");
+    String(s || "").trim().replace(/\s+/g, "_").replace(/[^\w\-]+/g, "_");
 
   const handleViewQR = async (part) => {
     try {
-      setQrError("");
-      setQrDataUrl("");
       setQrGenerating(true);
-
-      const payload = {
-        kode: String(part.kode),
-        nama: String(part.nama),
-      };
-
+      setShowQrModal(true);
+      const payload = { machine_name: String(part.woNumber), name_product: String(part.name) };
       setQrPayload(payload);
 
-      const jsonString = JSON.stringify(payload)
-        .replace(/":/g, '": ')
-        .replace(/","/g, '", "');
-      
-      const dataUrl = await QRCode.toDataURL(jsonString, {
-        margin: 2,
-        width: 320,
-        errorCorrectionLevel: "M",
-      });
-
+      const jsonString = JSON.stringify(payload).replace(/":/g, '": ').replace(/","/g, '", "');
+      const dataUrl = await QRCode.toDataURL(jsonString, { margin: 2, width: 320 });
       setQrDataUrl(dataUrl);
-      setShowQrModal(true);
     } catch (err) {
-      console.error(err);
       setQrError("Gagal generate QR Code.");
-      setShowQrModal(true);
     } finally {
       setQrGenerating(false);
     }
   };
 
-  const handleCloseQrModal = () => {
-    setShowQrModal(false);
-    setQrDataUrl("");
-    setQrPayload(null);
-    setQrError("");
-    setQrGenerating(false);
+  const handleDownloadPdf = () => {
+    if (!qrPayload || !qrDataUrl) return;
+    const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
+    const qrSize = 100;
+    const x = (doc.internal.pageSize.getWidth() - qrSize) / 2;
+    doc.addImage(qrDataUrl, "PNG", x, 40, qrSize, qrSize);
+    doc.setFontSize(20);
+    doc.text(`machine_name : ${qrPayload.machine_name}`, x + 6, 160);
+    doc.text(`name_product  : ${qrPayload.name_product}`, x + 6, 170);
+    doc.save(`QR_${sanitizeFilePart(qrPayload.name_product)}.pdf`);
   };
 
-  const handleDownloadWord = () => {
-    try {
-      if (!qrPayload || !qrDataUrl) return;
-
-      const kodePart = sanitizeFilePart(qrPayload.kode);
-      const namaPart = sanitizeFilePart(qrPayload.nama);
-      const filename = `QR_PART_${kodePart}_${namaPart}.doc`;
-
-      const html = `<!DOCTYPE html>
-        <html xmlns:o="urn:schemas-microsoft-com:office:office"
-              xmlns:w="urn:schemas-microsoft-com:office:word"
-              xmlns="http://www.w3.org/TR/REC-html40">
-        <head>
-          <meta charset="utf-8">
-          <title>QR</title>
-          <!--[if gte mso 9]>
-          <xml>
-            <w:WordDocument>
-              <w:View>Print</w:View>
-              <w:Zoom>100</w:Zoom>
-              <w:DoNotOptimizeForBrowser/>
-            </w:WordDocument>
-          </xml>
-          <![endif]-->
-          <style>
-            @page { margin: 1in; }
-            body { margin: 0; padding: 0; }
-            .wrap { width: 100%; text-align: center; margin-top: 20px; }
-            img { width: 320px; height: 320px; }
-          </style>
-        </head>
-        <body>
-          <div class="wrap">
-            <img src="${qrDataUrl}" />
-          </div>
-        </body>
-        </html>`;
-
-      const blob = new Blob([html], { type: "application/msword;charset=utf-8" });
-      saveAs(blob, filename);
-    } catch (err) {
-      console.error(err);
-      alert("Gagal membuat file Word.");
-    }
-  };
-
+  // --- RENDER UI ---
   return (
     <div>
       <div className="parts-top">
@@ -141,105 +196,144 @@ export default function Parts() {
           <img src={searchIcon} alt="Search" className="search-icon" />
           <input
             type="text"
-            placeholder="Search Parts"
+            placeholder="Search Parts or Machine..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-input"
           />
         </div>
-
-        <button className="add-parts-btn" onClick={handleAddPart}>
-          Add Parts
-        </button>
+        <button className="add-parts-btn" onClick={handleAddPart}>Add Parts</button>
       </div>
 
       <div className="table-container">
-        <table className="parts-table">
-          <thead>
-            <tr>
-              <th>No.</th>
-              <th>Nama Parts</th>
-              <th>Kode</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredParts.map((part) => (
-              <tr key={part.no}>
-                <td>{part.no}</td>
-                <td>{part.nama}</td>
-                <td>{part.kode}</td>
-                <td>
-                  <div className="action-buttons">
-                    <button 
-                      className="action-btn" 
-                      onClick={() => handleViewQR(part)}
-                      title="View QR"
-                    >
-                      <span>View QR</span>
-                      <QrCode size={18} />
-                    </button>
-                    <button 
-                      className="action-btn" 
-                      onClick={() => handleEdit(part)}
-                      title="Edit"
-                    >
-                      <span>Edit</span> 
-                      <Edit size={18} />
-                    </button>
-                    <button 
-                      className="action-btn" 
-                      onClick={() => handleDelete(part)}
-                      title="Delete"
-                    >
-                      <span>Delete</span>
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </td>
+        {loading ? <p style={{textAlign:"center", padding:"2rem"}}>Memuat data dari log...</p> : (
+          <table className="parts-table">
+            <thead>
+              <tr>
+                <th>No.</th>
+                <th>Name</th>
+                <th>Machine Name</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Status</th>
+                <th>Manpower</th>
+                <th className="text-center">Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredParts.map((part) => (
+                <tr key={part.no}>
+                  <td>{part.no}</td>
+                  <td>{part.name}</td>
+                  <td>{part.woNumber}</td>
+                  <td>{part.startDate}</td>
+                  <td>{part.endDate}</td>
+                  <td>
+                    <span className={`status-badge status-${part.status.toLowerCase()}`}>
+                      {part.status}
+                    </span>
+                  </td>
+                  <td>{part.manpower}</td>
+                  <td className="text-center">
+                    <div className="action-buttons">
+                      <button className="action-btn" onClick={() => handleViewQR(part)}><QrCode size={16} /> View QR</button>
+                      <button className="action-btn" onClick={() => handleEdit(part)}><Edit size={16} /> Edit</button>
+                      <button className="action-btn" onClick={() => handleDelete(part)}><Trash2 size={16} /> Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      {showQrModal && (
+      {/* --- MODAL ADD (Struktur UI Dipertahankan) --- */}
+      {showAddModal && (
         <>
-          <div className="modal-overlay" onClick={handleCloseQrModal}></div>
+          <div className="modal-overlay" onClick={() => setShowAddModal(false)}></div>
           <div className="modal">
             <div className="modal-header">
-              <h2>QR Code</h2>
-              <button className="modal-close" onClick={handleCloseQrModal}>
-                <X size={24} />
-              </button>
+              <h2>Add New Part</h2>
+              <button className="modal-close" onClick={() => setShowAddModal(false)}><X size={24} /></button>
             </div>
-
-            <div className="modal-body" style={{ textAlign: "center" }}>
-              {qrError ? (
-                <p className="error-text">{qrError}</p>
-              ) : qrGenerating ? (
-                <p>Generating QR...</p>
-              ) : (
-                qrDataUrl && (
-                  <img
-                    src={qrDataUrl}
-                    alt="QR Code"
-                    style={{ width: 320, maxWidth: "100%", borderRadius: 8 }}
-                  />
-                )
-              )}
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Name *</label>
+                <input type="text" className="form-input" value={addForm.name} onChange={(e) => handleAddFormChange("name", e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>Machine Name *</label>
+                <input type="text" className="form-input" value={addForm.woNumber} onChange={(e) => handleAddFormChange("woNumber", e.target.value)} />
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label>Start Date</label><input type="date" className="form-input" value={addForm.startDate} onChange={(e) => handleAddFormChange("startDate", e.target.value)} /></div>
+                <div className="form-group"><label>End Date</label><input type="date" className="form-input" value={addForm.endDate} onChange={(e) => handleAddFormChange("endDate", e.target.value)} /></div>
+              </div>
+              <div className="form-group">
+                <label>Manpower</label>
+                <input type="text" className="form-input" value={addForm.manpower} onChange={(e) => handleAddFormChange("manpower", e.target.value)} placeholder="Nama Manpower" />
+              </div>
             </div>
-
             <div className="modal-footer">
-              <button className="btn-cancel" onClick={handleCloseQrModal}>
-                Close
-              </button>
+              <button className="btn-cancel" onClick={() => setShowAddModal(false)}>Cancel</button>
+              <button className="btn-save" onClick={handleSaveAdd}>Add Part</button>
+            </div>
+          </div>
+        </>
+      )}
 
-              {qrDataUrl && !qrError && (
-                <button className="btn-save" onClick={handleDownloadWord}>
-                  Download Word
-                </button>
-              )}
+      {/* --- MODAL EDIT (Struktur UI Dipertahankan) --- */}
+      {showEditModal && (
+        <>
+          <div className="modal-overlay" onClick={() => setShowEditModal(false)}></div>
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Edit Part</h2>
+              <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={24} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Machine Name (Read Only)</label>
+                <input type="text" className="form-input disabled" value={editForm.woNumber} disabled />
+              </div>
+              <div className="form-group">
+                <label>Name</label>
+                <input type="text" className="form-input" value={editForm.name} onChange={(e) => handleEditFormChange("name", e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>Status</label>
+                <select className="form-input" value={editForm.status} onChange={(e) => handleEditFormChange("status", e.target.value)}>
+                  <option value="Working">Working</option>
+                  <option value="Not Working">Not Working</option>
+                  <option value="start">start</option>
+                  <option value="stop">stop</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Manpower</label>
+                <input type="text" className="form-input" value={editForm.manpower} onChange={(e) => handleEditFormChange("manpower", e.target.value)} />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={() => setShowEditModal(false)}>Cancel</button>
+              <button className="btn-save" onClick={handleSaveEdit}>Save Changes</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* --- MODAL QR --- */}
+      {showQrModal && (
+        <>
+          <div className="modal-overlay" onClick={() => setShowQrModal(false)}></div>
+          <div className="modal">
+            <div className="modal-header"><h2>QR Code</h2><button className="modal-close" onClick={() => setShowQrModal(false)}><X size={24} /></button></div>
+            <div className="modal-body" style={{ textAlign: "center" }}>
+              {qrGenerating ? <p>Generating...</p> : qrDataUrl && <img src={qrDataUrl} alt="QR" style={{ width: 300 }} />}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-save" onClick={handleDownloadPdf}>Download PDF</button>
             </div>
           </div>
         </>
