@@ -1,97 +1,117 @@
 import { useState, useEffect } from "react";
-import { Monitor, Users, Wrench, ClipboardList, Activity, X, Zap, Thermometer, Gauge, Cpu } from "lucide-react";
+import { 
+  Monitor, Users, Wrench, ClipboardList, Calendar, Activity, X, 
+  Download, Zap, Thermometer, Gauge, Battery, TrendingUp, Cpu 
+} from "lucide-react";
 import StatCard from "../components/StatCard";
 import "../styles/dashboard.css";
-// Import API yang dibutuhkan untuk menghitung jumlah data
-import { getMachineLogs, getProductLogs,getProductList, getManpowerList } from "../services/api"; 
+// API Imports
+import { getMachineLogs, getProductList, getManpowerList } from "../services/api"; 
 
 export default function Dashboard() {
+  // --- STATE MANAGEMENT ---
   const [loading, setLoading] = useState(true);
-  const [latestData, setLatestData] = useState({});
+  const [selectedDevice, setSelectedDevice] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-  
-  // State untuk menyimpan jumlah (count) dari page lain
-  const [counts, setCounts] = useState({
-    manpower: 0,
-    parts: 0
-  });
+  const [startDate, setStartDate] = useState("2025-08-05");
+  const [endDate, setEndDate] = useState("2026-01-27");
+  const [latestData, setLatestData] = useState({});
+  const [counts, setCounts] = useState({ manpower: 0, parts: 0 });
 
-  // --- 1. SINKRONISASI DATA (LOG MACHINE & COUNTS) ---
-  const fetchData = async () => {
+  // --- 1. DATA FETCHING & SYNC ---
+  const fetchDashboardData = async () => {
     try {
-      // Ambil data log machine untuk box detail
-      const machineLogs = await getMachineLogs(); 
-      
-      // Pivot data log machine (ambil data terbaru)
+      const [machineLogs, manpowerData, partsData] = await Promise.all([
+        getMachineLogs(),
+        getManpowerList(),
+        getProductList()
+      ]);
+
+      // Pivot database logs ke format Key-Value
       const pivot = {};
       machineLogs.forEach((log) => {
         if (!(log.tag_name in pivot)) {
           pivot[log.tag_name] = log.tag_value;
         }
       });
-      setLatestData(pivot);
-
-      // Ambil data Man Power untuk menghitung jumlahnya
-      const manpowerData = await getManpowerList();
       
-      // Ambil data Parts (Product Logs) untuk menghitung jumlahnya
-      const partsData = await getProductList();
-
+      setLatestData(pivot);
       setCounts({
         manpower: manpowerData.length,
         parts: partsData.length
       });
-
       setLoading(false);
     } catch (error) {
-      console.error("Gagal sinkronisasi data dashboard:", error);
+      console.error("Sync Error:", error);
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
-    // Refresh otomatis setiap 5 detik
-    const interval = setInterval(fetchData, 5000);
+    fetchDashboardData();
+    const interval = setInterval(fetchDashboardData, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  // --- 2. MAPPING DYNAMICS (IoT Tags) ---
-  const machine01 = {
-    name: "Machine 01",
-    status: latestData["Machine_Status"] || "OFFLINE",
-    validation: latestData["Validation_Status"] || "N/A",
-    manpower: latestData["ManPower_Validation"] || "No Operator",
-    product: latestData["Product_Validation"] || "No Work Order",
-    energy: latestData["PA330:Energy"] ? `${latestData["PA330:Energy"]} kWh` : "0 kWh",
-    temp: latestData["WISE4010:Temperature"] ? `${latestData["WISE4010:Temperature"]}°C` : "0°C",
-    power: latestData["PA330:Real_Power"] ? `${latestData["PA330:Real_Power"]} W` : "0 W",
-    voltage: latestData["PA330:Voltage"] || "0",
-    current: latestData["PA330:Current"] || "0",
-    isGreen: latestData["WISE4010:Green_Lamp"] === "1",
-    isRed: latestData["WISE4010:Red_Lamp"] === "1",
-    isEmergency: latestData["WISE4050:PB_EMG"] === "1"
+  // --- 2. DYNAMIC MAPPING (Mengembalikan Fitur Lengkap) ---
+  const devices = [
+    {
+      id: 1,
+      name: "Machine 01",
+      deviceName: latestData["machine_id"] || "Channe-Test1",
+      status: latestData["WISE4010:Green_Lamp"] === "1" ? "Active" : "Warning",
+      deviceStatus: latestData["Machine_Status"] || "OFFLINE",
+      lastMaintenance: "2026-01-20",
+      uptime: "98.5%",
+      // Power Meter Parameters dari DB
+      voltage: `${latestData["PA330:Voltage"] || 0} V`,
+      current: `${latestData["PA330:Current"] || 0} A`,
+      power: `${latestData["PA330:Real_Power"] || 0} kW`,
+      kwh: `${latestData["PA330:Energy"] || 0} kWh`,
+      powerFactor: latestData["PA330:Power_Factor"] || "0.95",
+      frequency: "50 Hz",
+      temperature: `${latestData["WISE4010:Temperature"] || 0}°C`,
+      pressure: "2.5 Bar",
+      runtime: "2,340 hrs",
+      
+      // Validation & Assignment
+      assignedManPower: latestData["ManPower_Validation"] || "No Operator",
+      assignedWorkOrder: latestData["Product_Validation"] || "No WO",
+      assignedParts: "Belt",
+      
+      // UI Features: Timeline & History (Bisa di-map dari DB jika ada table status_history)
+      statusSummary: {
+        running: "03:05:17",
+        standby: "00:15:21",
+        total: "04:06:38"
+      },
+      chartTimeline: [
+        { start: "08:00", end: "10:00", status: "RUNNING", color: "#00BCD4" },
+        { start: "10:00", end: "11:00", status: "STOP", color: "#FF5252" },
+        { start: "11:00", end: "15:00", status: "RUNNING", color: "#00BCD4" },
+      ],
+      historyTable: [
+        { no: 1, status: "RUNNING", from: "2025-08-05 05:00:00", until: "2026-01-27 10:00:00", manPower: latestData["ManPower_Validation"], workOrder: latestData["Product_Validation"], part: "Belt" },
+      ]
+    }
+  ];
+
+  const stats = [
+    { label: "Device Active", count: devices.length, icon: <Monitor size={32} /> },
+    { label: "Man Power", count: counts.manpower, icon: <Users size={32} /> },
+    { label: "Parts Linked", count: counts.parts, icon: <Wrench size={32} /> },
+    { label: "Work Order", count: 6, icon: <ClipboardList size={32} /> },
+  ];
+
+  // --- 3. HANDLERS ---
+  const handleViewDetails = (device) => {
+    setSelectedDevice(device);
+    setShowDetailModal(true);
   };
 
-  // --- 3. STATISTIK (Dinamis dari Page Manpower & Parts) ---
-  const stats = [
-    { label: "Device Active", count: 1, icon: <Monitor size={32} /> },
-    { 
-      label: "Man Power", 
-      count: counts.manpower, // Diambil dari jumlah data di page Manpower
-      icon: <Users size={32} /> 
-    },
-    { 
-      label: "Parts Linked", 
-      count: counts.parts, // Diambil dari jumlah data di page Parts
-      icon: <Wrench size={32} /> 
-    },
-    { 
-      label: "Current WO", 
-      count: 6, // Statis sesuai permintaan
-      icon: <ClipboardList size={32} /> 
-    },
-  ];
+  const handleExportData = () => {
+    alert(`Exporting data for ${selectedDevice.name}...`);
+  };
 
   return (
     <>
@@ -105,106 +125,141 @@ export default function Dashboard() {
         {loading ? (
           <div className="loading-state">Syncing with PostgreSQL...</div>
         ) : (
-          <div className="device-card-dashboard">
-            <div className="device-card-header">
-              <h3>{machine01.name}</h3>
-              <span className={`device-badge status-${machine01.isGreen ? "active" : machine01.isRed ? "stop" : "offline"}`}>
-                {machine01.status}
-              </span>
+          devices.map((device) => (
+            <div key={device.id} className="device-card-dashboard">
+              <div className="device-card-header">
+                <h3>{device.name}</h3>
+                <span className={`device-badge status-${device.status.toLowerCase()}`}>
+                  {device.deviceStatus}
+                </span>
+              </div>
+
+              <div className="device-card-info">
+                <div className="info-row"><Activity size={16} /> <span>Uptime: {device.uptime}</span></div>
+                <div className="info-row"><Zap size={16} /> <span>Voltage: {device.voltage}</span></div>
+                <div className="info-row"><TrendingUp size={16} /> <span>Power: {device.power}</span></div>
+                <div className="info-row"><Thermometer size={16} /> <span>Temp: {device.temperature}</span></div>
+                <div className="info-row"><Gauge size={16} /> <span>Pressure: {device.pressure}</span></div>
+              </div>
+
+              <button className="btn-view-details" onClick={() => handleViewDetails(device)}>
+                View Details
+              </button>
             </div>
-
-            <div className="device-card-info">
-              <div className="info-row">
-                <Cpu size={18} color="#3b82f6" />
-                <span>ID: {latestData["machine_id"] || "machine_01"}</span>
-              </div>
-
-              <div className="info-row">
-                <Activity size={18} color="#3b82f6" />
-                <span>Validation: <strong>{machine01.validation}</strong></span>
-              </div>
-
-              <div className="info-row">
-                <Zap size={18} color="#3b82f6" />
-                <span>Energy: {machine01.energy}</span>
-              </div>
-
-              <div className="info-row">
-                <Thermometer size={18} color="#3b82f6" />
-                <span>Temp: {machine01.temp}</span>
-              </div>
-
-              <div className="info-row">
-                <Gauge size={18} color="#3b82f6" />
-                <span>Real Power: {machine01.power}</span>
-              </div>
-            </div>
-
-            <button className="btn-view-details" onClick={() => setShowDetailModal(true)}>
-              View Details
-            </button>
-          </div>
+          ))
         )}
       </div>
 
-      {/* MODAL DETAIL */}
-      {showDetailModal && (
+      {/* MODAL DETAIL (FITUR LENGKAP) */}
+      {showDetailModal && selectedDevice && (
         <>
           <div className="modal-overlay" onClick={() => setShowDetailModal(false)}></div>
           <div className="modal modal-large">
             <div className="modal-header">
-              <h2>Machine Sensor Logs (Live)</h2>
+              <h2>Detail Analysis: {selectedDevice.name}</h2>
               <button className="modal-close" onClick={() => setShowDetailModal(false)}>
                 <X size={24} />
               </button>
             </div>
 
             <div className="modal-body">
+              <div className="history-section">
+                <div className="date-range-container">
+                  <div className="date-input-group">
+                    <label>Start</label>
+                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+                  </div>
+                  <div className="date-input-group">
+                    <label>End</label>
+                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                  </div>
+                  <button className="btn-export" onClick={handleExportData}>
+                    <Download size={18} /> Export Data
+                  </button>
+                </div>
+              </div>
+
               <div className="content-grid">
+                {/* Timeline Section */}
                 <div className="chart-section">
-                  <h3>Hardware Status</h3>
+                  <h3>Operation Timeline</h3>
                   <div className="status-summary">
-                    <div className={`status-box ${machine01.isRed ? "status-running" : ""}`}>
-                      <span className="status-label">● RED LAMP</span>
+                    <div className="status-box status-running-active">
+                      <span className="status-label">● RUNNING</span>
+                      <span className="status-time">{selectedDevice.statusSummary.running}</span>
                     </div>
-                    <div className={`status-box ${machine01.isGreen ? "status-running-active" : ""}`}>
-                      <span className="status-label">● GREEN LAMP</span>
+                    <div className="status-box status-total">
+                      <span className="status-label">● TOTAL</span>
+                      <span className="status-time">{selectedDevice.statusSummary.total}</span>
                     </div>
                   </div>
 
-                  <div className="electrical-data" style={{ marginTop: '20px' }}>
-                    <div className="detail-item-simple">
-                      <span className="label">Voltage</span>
-                      <span className="value">{machine01.voltage} V</span>
+                  <div className="timeline-chart">
+                    <div className="timeline-bar">
+                      {selectedDevice.chartTimeline.map((segment, idx) => (
+                        <div
+                          key={idx}
+                          className="timeline-segment"
+                          style={{ backgroundColor: segment.color, flex: 1 }}
+                          title={`${segment.status}: ${segment.start} - ${segment.end}`}
+                        />
+                      ))}
                     </div>
-                    <div className="detail-item-simple">
-                      <span className="label">Current</span>
-                      <span className="value">{machine01.current} A</span>
+                    <div className="timeline-labels">
+                      <span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span>
                     </div>
                   </div>
                 </div>
 
+                {/* Info Section */}
                 <div className="detail-section">
-                  <h3>Validation Details</h3>
+                  <h3>Validation & Sensor Data</h3>
                   <div className="detail-item-simple">
                     <span className="label">Operator</span>
-                    <span className="value">{machine01.manpower}</span>
+                    <span className="value">{selectedDevice.assignedManPower}</span>
                   </div>
                   <div className="detail-item-simple">
-                    <span className="label">Active WO</span>
-                    <span className="value">{machine01.product}</span>
+                    <span className="label">Work Order</span>
+                    <span className="value">{selectedDevice.assignedWorkOrder}</span>
                   </div>
                   <div className="detail-item-simple">
-                    <span className="label">Contactor</span>
-                    <span className="value">{latestData["WISE4010:Contactor"] === "1" ? "ON" : "OFF"}</span>
+                    <span className="label">Voltage</span>
+                    <span className="value">{selectedDevice.voltage}</span>
                   </div>
                   <div className="detail-item-simple">
-                    <span className="label">Emergency</span>
-                    <span className="value" style={{ color: machine01.isEmergency ? "red" : "green" }}>
-                      {machine01.isEmergency ? "⚠️ PRESSED" : "NORMAL"}
-                    </span>
+                    <span className="label">Energy (Accumulated)</span>
+                    <span className="value">{selectedDevice.kwh}</span>
                   </div>
                 </div>
+              </div>
+
+              {/* History Table */}
+              <div className="history-table-section">
+                <h3>Tabel Aranged By Hour</h3>
+                <table className="history-table">
+                  <thead>
+                    <tr>
+                      <th>Status</th>
+                      <th>From</th>
+                      <th>Until</th>
+                      <th>Man Power</th>
+                      <th>Work Order</th>
+                      <th>Part</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedDevice.historyTable.map((row, i) => (
+                      <tr key={i}>
+                        <td><span className={`table-status-badge ${row.status.toLowerCase()}`}>{row.status}</span></td>
+                        <td>{row.from}</td>
+                        <td>{row.until}</td>
+                        <td>{row.manPower}</td>
+                        <td>{row.workOrder}</td>
+                        <td>{row.part}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
 

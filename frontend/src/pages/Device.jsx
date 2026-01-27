@@ -137,7 +137,7 @@ export default function Device() {
         </div>
 
         <button className="add-device-btn" onClick={handleAddDevice}>
-          Add Log
+          Add Device
         </button>
       </div>
 
@@ -196,7 +196,7 @@ export default function Device() {
           <div className="modal-overlay" onClick={() => setShowAddModal(false)}></div>
           <div className="modal">
             <div className="modal-header">
-              <h2>Add New Machine Log</h2>
+              <h2>Add New Device</h2>
               <button className="modal-close" onClick={() => setShowAddModal(false)}><X size={24} /></button>
             </div>
             <div className="modal-body">

@@ -9,10 +9,9 @@ import { getManpowerList, getManpowerLogs } from "../services/api";
 export default function ManPower() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false); // State Modal Tambah
+  const [showAddModal, setShowAddModal] = useState(false); 
   const [editingPerson, setEditingPerson] = useState(null);
 
-  // State Formulir Tambah
   const [addForm, setAddForm] = useState({
     name: "",
     nik: "",
@@ -30,7 +29,6 @@ export default function ManPower() {
   const [manPowerData, setManPowerData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // --- LOGIC INTEGRASI API ---
   useEffect(() => {
     const loadAllData = async () => {
       try {
@@ -49,7 +47,7 @@ export default function ManPower() {
             nik: person.nik,
             department: person.department || "Unassigned",
             position: person.position || "Staff",
-            status: lastLog ? lastLog.action : "logout"
+            status: lastLog ? lastLog.status : "logout"
           };
         });
 
@@ -63,13 +61,11 @@ export default function ManPower() {
     loadAllData();
   }, []);
 
-  // Filter dengan perlindungan nilai null/undefined
   const filteredManPower = manPowerData.filter(person =>
     (person.name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (String(person.nik || "").includes(searchQuery))
   );
 
-  // --- LOGIKA ADD MAN POWER ---
   const handleAddManPower = () => {
     setAddForm({
       name: "",
@@ -81,32 +77,48 @@ export default function ManPower() {
     setShowAddModal(true);
   };
 
-  const handleSaveAdd = () => {
+  // --- PERBAIKAN FUNGSI HANDLESAVEADD ---
+  const handleSaveAdd = async () => {
     if (!addForm.name || !addForm.nik || !addForm.department || !addForm.position) {
       alert("Harap isi semua kolom yang wajib!");
       return;
     }
 
-    // Cek duplikasi NIK di local state
-    const isDuplicate = manPowerData.some(p => String(p.nik) === String(addForm.nik));
-    if (isDuplicate) {
-      alert("NIK sudah terdaftar!");
-      return;
+    try {
+      // 1. Kirim data ke Backend API
+      const response = await fetch("http://localhost:8000/add_manpower", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(addForm),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // 2. Jika sukses di DB, update UI local agar tidak perlu refresh
+        const newId = manPowerData.length > 0 ? Math.max(...manPowerData.map(p => p.id)) + 1 : 1;
+        const newPerson = {
+          ...addForm,
+          id: newId,
+          no: newId
+        };
+
+        setManPowerData([...manPowerData, newPerson]);
+        setShowAddModal(false);
+        alert("Data berhasil disimpan ke database!");
+      } else {
+        // Menangani error dari backend (contoh: NIK duplikat)
+        alert("Gagal menyimpan: " + (result.detail || "Terjadi kesalahan server"));
+      }
+    } catch (error) {
+      console.error("Error connecting to API:", error);
+      alert("Koneksi ke server gagal. Pastikan API backend sudah berjalan.");
     }
-
-    const newId = manPowerData.length > 0 ? Math.max(...manPowerData.map(p => p.id)) + 1 : 1;
-    const newPerson = {
-      ...addForm,
-      id: newId,
-      no: newId
-    };
-
-    setManPowerData([...manPowerData, newPerson]);
-    setShowAddModal(false);
-    alert("Data berhasil ditambahkan!");
   };
+  // ---------------------------------------
 
-  // --- LOGIKA PDF & QR ---
   const sanitizeFilePart = (s) => String(s || "").trim().replace(/\s+/g, "_").replace(/[^\w\-]+/g, "_");
 
   const handleDownloadPDF = () => {
@@ -143,17 +155,86 @@ export default function ManPower() {
   const handleEdit = (person) => { setEditingPerson({ ...person }); setShowEditModal(true); };
   const handleCancelEdit = () => { setShowEditModal(false); setEditingPerson(null); };
 
-  const handleSaveEdit = () => {
-    if (!editingPerson.name || !editingPerson.nik) return alert("Data tidak lengkap!");
-    setManPowerData(manPowerData.map(p => p.id === editingPerson.id ? editingPerson : p));
-    setShowEditModal(false);
-  };
+  const handleSaveEdit = async () => {
+    if (
+      !editingPerson.name ||
+      !editingPerson.nik ||
+      !editingPerson.department ||
+      !editingPerson.position
+    ) {
+      alert("Data tidak lengkap!");
+      return;
+    }
 
-  const handleDelete = (id) => {
-    if (window.confirm("Hapus data ini?")) {
-      setManPowerData(manPowerData.filter(p => p.id !== id));
+    try {
+      const payload = {
+        name: editingPerson.name,
+        nik: editingPerson.nik,
+        department: editingPerson.department,
+        position: editingPerson.position
+      };
+
+      const response = await fetch("http://localhost:8000/editmanpower", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert("Gagal update: " + (result.detail || "Server error"));
+        return;
+      }
+
+      // 🔥 Update UI (status dipaksa logout)
+      setManPowerData(prev =>
+        prev.map(p =>
+          p.nik === editingPerson.nik
+            ? { ...editingPerson, status: "logout" }
+            : p
+        )
+      );
+
+      setShowEditModal(false);
+      setEditingPerson(null);
+      alert("Data manpower berhasil diperbarui");
+
+    } catch (error) {
+      console.error(error);
+      alert("Koneksi ke server gagal!");
     }
   };
+
+  const handleDelete = async (nik) => {
+  if (window.confirm(`Apakah Anda yakin ingin menghapus manpower dengan NIK: ${nik}?`)) {
+    try {
+      const response = await fetch("http://localhost:8000/delete_manpower", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ nik: nik }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setManPowerData(
+          manPowerData.filter((p) => String(p.nik) !== String(nik))
+        );
+        alert("Data berhasil dihapus!");
+      } else {
+        alert("Gagal menghapus: " + (result.detail || "Terjadi kesalahan server"));
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Koneksi ke server gagal!");
+    }
+  }
+};
 
   const handleStatusChange = (id, newStatus) => {
     setManPowerData(manPowerData.map(p => p.id === id ? { ...p, status: newStatus } : p));
@@ -194,20 +275,15 @@ export default function ManPower() {
                   <td>{person.department}</td>
                   <td>{person.position}</td>
                   <td>
-                    <select
-                      value={person.status}
-                      onChange={(e) => handleStatusChange(person.id, e.target.value)}
-                      className={`status-select status-${person.status}`}
-                    >
-                      <option value="login">login</option>
-                      <option value="logout">logout</option>
-                    </select>
+                    <span className={`status-badge status-${person.status}`}>
+                      {person.status}
+                    </span>
                   </td>
                   <td>
                     <div className="action-buttons">
                       <button className="action-btn view-btn" onClick={() => handleViewQR(person)}><Eye size={18} /></button>
                       <button className="action-btn edit-btn" onClick={() => handleEdit(person)}><Edit size={18} /></button>
-                      <button className="action-btn delete-btn" onClick={() => handleDelete(person.id)}><Trash2 size={18} /></button>
+                      <button className="action-btn delete-btn" onClick={() => handleDelete(person.nik)}><Trash2 size={18} /></button>
                     </div>
                   </td>
                 </tr>
@@ -293,8 +369,8 @@ export default function ManPower() {
                 <input type="text" value={editingPerson.name} onChange={(e) => setEditingPerson({ ...editingPerson, name: e.target.value })} className="form-input" />
               </div>
               <div className="form-group">
-                <label>NIK</label>
-                <input type="text" value={editingPerson.nik} onChange={(e) => setEditingPerson({ ...editingPerson, nik: e.target.value })} className="form-input" />
+                <label>NIK (Read Only)</label>
+                <input type="text" value={editingPerson.nik} className="form-input disabled" readOnly />
               </div>
               <div className="form-group">
                 <label>Department</label>

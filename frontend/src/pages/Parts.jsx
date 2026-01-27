@@ -29,7 +29,7 @@ export default function Parts() {
   
   // Form States (Tetap dipertahankan strukturnya)
   const [editForm, setEditForm] = useState({
-    name: "",
+    name_product: "",
     woNumber: "",
     startDate: "",
     endDate: "",
@@ -38,7 +38,7 @@ export default function Parts() {
   });
   
   const [addForm, setAddForm] = useState({
-    name: "",
+    name_product: "",
     woNumber: "",
     startDate: "",
     endDate: "",
@@ -63,7 +63,7 @@ export default function Parts() {
         return {
           id: item.id || index,
           no: index + 1,
-          name: item.name_product || "N/A",      // Mapping: Name
+          name_product: item.name_product || "N/A",      // Mapping: Name
           woNumber: item.machine_name || "N/A",
           startDate: logDate,                    // Mapping: created_at
           endDate: logDate,                      // Mapping: created_at
@@ -83,7 +83,7 @@ export default function Parts() {
   // --- 2. LOGIKA FILTER SEARCH ---
   const filteredParts = partsData.filter(
     (part) =>
-      part.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      part.name_product.toLowerCase().includes(searchQuery.toLowerCase()) ||
       part.woNumber.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -91,7 +91,7 @@ export default function Parts() {
   const handleAddPart = () => {
     const today = new Date().toISOString().split('T')[0];
     setAddForm({
-      name: "",
+      name_product: "",
       woNumber: "",
       startDate: today,
       endDate: today,
@@ -105,55 +105,142 @@ export default function Parts() {
     setAddForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveAdd = async () => {
-    if (!addForm.name || !addForm.woNumber) {
-      alert("Mohon isi field yang diperlukan!");
+const handleSaveAdd = async () => {
+  if (!addForm.name_product || !addForm.woNumber) {
+    alert("Mohon isi field yang diperlukan!");
+    return;
+  }
+
+  try {
+    // 1. Payload ke backend
+    const payload = {
+      machine_name: addForm.woNumber,
+      name_product: addForm.name_product,
+      start_date: addForm.startDate
+    };
+
+    // 2. Call API
+    const response = await fetch("http://localhost:8000/addproduct", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      alert("Gagal menambah part: " + (result.detail || "Server error"));
       return;
     }
-    
-    // Logic Simpan (Lokal + Placeholder API)
-    const newNo = partsData.length > 0 ? Math.max(...partsData.map(p => p.no)) + 1 : 1;
-    const newPart = { ...addForm, no: newNo };
-    
+
+    // 3. Update UI (SETELAH backend sukses)
+    const newNo =
+      partsData.length > 0
+        ? Math.max(...partsData.map(p => p.no)) + 1
+        : 1;
+
+    const newPart = {
+      no: newNo,
+      name_product: addForm.name_product,
+      woNumber: addForm.woNumber,
+      startDate: addForm.startDate,
+      endDate: addForm.startDate,
+      status: "stop",
+      manpower: "admin"
+    };
+
     setPartsData(prev => [newPart, ...prev]);
     setShowAddModal(false);
     alert("Part berhasil ditambahkan!");
-  };
+
+  } catch (error) {
+    console.error(error);
+    alert("Koneksi ke server gagal!");
+  }
+};
 
   // --- 4. EDIT PART HANDLERS ---
-  const handleEdit = (part) => {
-    setEditingPart(part);
-    setEditForm({
-      name: part.name,
-      woNumber: part.woNumber,
-      startDate: part.startDate,
-      endDate: part.endDate,
-      status: part.status,
-      manpower: part.manpower
-    });
-    setShowEditModal(true);
-  };
+  const handleSaveEdit = async () => {
+    try {
+      const payload = {
+        machine_name: editingPart.woNumber,
+        name_product: editForm.name_product
+      };
 
-  const handleEditFormChange = (field, value) => {
-    setEditForm(prev => ({ ...prev, [field]: value }));
-  };
+      const response = await fetch("http://localhost:8000/editproduct", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
 
-  const handleSaveEdit = () => {
-    setPartsData(prevData =>
-      prevData.map(part =>
-        part.no === editingPart.no ? { ...part, ...editForm } : part
-      )
-    );
-    setShowEditModal(false);
-    alert("Data berhasil diperbarui!");
-  };
+      const result = await response.json();
 
-  // --- 5. DELETE HANDLER ---
-  const handleDelete = (part) => {
-    if (window.confirm(`Hapus ${part.name}?`)) {
-      setPartsData(prevData => prevData.filter(p => p.no !== part.no));
+      if (!response.ok) {
+        alert("Gagal edit product: " + (result.detail || "Server error"));
+        return;
+      }
+
+      // 🔥 REFRESH DARI LOG
+      await fetchParts();
+
+      setShowEditModal(false);
+      alert("Product berhasil diperbarui (status stop)");
+
+    } catch (error) {
+      console.error(error);
+      alert("Koneksi ke server gagal!");
     }
   };
+
+
+  // --- 5. DELETE HANDLER (SYNC DENGAN BACKEND) ---
+  const handleDelete = async (part) => {
+    if (!window.confirm(`Hapus ${part.name_product}?`)) return;
+
+    try {
+      const payload = {
+        machine_name: part.woNumber,
+        name_product: part.name_product
+      };
+
+      const response = await fetch("http://localhost:8000/delete_product", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert("Gagal menghapus: " + (result.detail || "Server error"));
+        return;
+      }
+
+      // 🔥 Update UI setelah backend sukses
+      setPartsData(prev =>
+        prev.filter(
+          p =>
+            !(
+              p.woNumber === part.woNumber &&
+              p.name_product === part.name_product
+            )
+        )
+      );
+
+      alert("Product berhasil dihapus");
+
+    } catch (error) {
+      console.error(error);
+      alert("Koneksi ke server gagal!");
+    }
+  };
+
 
   // --- 6. QR & PDF LOGIC (FULL) ---
   const sanitizeFilePart = (s) =>
@@ -163,7 +250,7 @@ export default function Parts() {
     try {
       setQrGenerating(true);
       setShowQrModal(true);
-      const payload = { machine_name: String(part.woNumber), name_product: String(part.name) };
+      const payload = { machine_name: String(part.woNumber), name_product: String(part.name_product) };
       setQrPayload(payload);
 
       const jsonString = JSON.stringify(payload).replace(/":/g, '": ').replace(/","/g, '", "');
@@ -224,7 +311,7 @@ export default function Parts() {
               {filteredParts.map((part) => (
                 <tr key={part.no}>
                   <td>{part.no}</td>
-                  <td>{part.name}</td>
+                  <td>{part.name_product}</td>
                   <td>{part.woNumber}</td>
                   <td>{part.startDate}</td>
                   <td>{part.endDate}</td>
@@ -260,7 +347,7 @@ export default function Parts() {
             <div className="modal-body">
               <div className="form-group">
                 <label>Name *</label>
-                <input type="text" className="form-input" value={addForm.name} onChange={(e) => handleAddFormChange("name", e.target.value)} />
+                <input type="text" className="form-input" value={addForm.name_product} onChange={(e) => handleAddFormChange("name_product", e.target.value)} />
               </div>
               <div className="form-group">
                 <label>Machine Name *</label>
@@ -299,13 +386,11 @@ export default function Parts() {
               </div>
               <div className="form-group">
                 <label>Name</label>
-                <input type="text" className="form-input" value={editForm.name} onChange={(e) => handleEditFormChange("name", e.target.value)} />
+                <input type="text" className="form-input" value={editForm.name_product} onChange={(e) => handleEditFormChange("name_product", e.target.value)} />
               </div>
               <div className="form-group">
                 <label>Status</label>
                 <select className="form-input" value={editForm.status} onChange={(e) => handleEditFormChange("status", e.target.value)}>
-                  <option value="Working">Working</option>
-                  <option value="Not Working">Not Working</option>
                   <option value="start">start</option>
                   <option value="stop">stop</option>
                 </select>

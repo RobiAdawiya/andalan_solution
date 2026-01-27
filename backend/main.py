@@ -80,12 +80,12 @@ def handle_manpower(data):
 
     # 4. Ambil login terakhir manpower
     last_login = fetch_one("""
-        SELECT nik, name, action FROM log_manpower 
+        SELECT nik, name, status FROM log_manpower 
         ORDER BY created_at DESC LIMIT 1
     """)
 
     # --- KONDISI 1: MANPOWER INGIN LOGIN ---
-    if not last_login or last_login["action"] == "logout":
+    if not last_login or last_login["status"] == "logout":
         
         # ATURAN: Jika tag_value bernilai 1 (Login), manpower TIDAK boleh login.
         # Manpower hanya boleh login jika tag_value 0 (Logout).
@@ -93,13 +93,13 @@ def handle_manpower(data):
             return False, "Gagal Login: WISE4050:PB_EMG (1). Harap matikan WISE4050:PB_EMG dulu."
         
         execute_query("""
-            INSERT INTO log_manpower (created_at, nik, name, action)
+            INSERT INTO log_manpower (created_at, nik, name, status)
             VALUES (NOW(), %s, %s, 'login')
         """, (nik, name))
         return True, "Login berhasil"
 
     # --- KONDISI 2: MANPOWER INGIN LOGOUT ---
-    if last_login["action"] == "login":
+    if last_login["status"] == "login":
         if str(last_login["nik"]) != str(nik):
             return False, f"Gagal: {last_login['name']} sedang login"
         if machine_status == 0:
@@ -121,7 +121,7 @@ def handle_manpower(data):
 
         # Eksekusi Logout Manpower
         execute_query("""
-            INSERT INTO log_manpower (created_at, nik, name, action)
+            INSERT INTO log_manpower (created_at, nik, name, status)
             VALUES (NOW(), %s, %s, 'logout')
         """, (nik, name))
         
@@ -151,11 +151,11 @@ def handle_product(data):
     manpower = fetch_one("""
         SELECT nik, name
         FROM log_manpower lm
-        WHERE lm.action = 'login'
+        WHERE lm.status = 'login'
         AND NOT EXISTS (
             SELECT 1 FROM log_manpower lo
             WHERE lo.nik = lm.nik
-            AND lo.action = 'logout'
+            AND lo.status = 'logout'
             AND lo.created_at > lm.created_at
         )
         ORDER BY lm.created_at DESC
