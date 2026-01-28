@@ -1,278 +1,191 @@
 import { useState, useEffect } from "react";
-import { X, Trash2, Edit, QrCode } from "lucide-react";
+import { X, QrCode, History } from "lucide-react";
 import QRCode from "qrcode";
 import searchIcon from "../assets/search.png";
 import "../styles/parts.css";
 import jsPDF from "jspdf";
-// Import fungsi API
-import { getProductLogs } from "../services/api"; 
+// Import API functions (Adjust path if necessary)
+import { getProductList, getProductLogs } from "../services/api";
 
 export default function Parts() {
-  // --- STATE MANAGEMENT ---
+  // --- STATES ---
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const [partsData, setPartsData] = useState([]);
-  
-  // Modal States
+  const [partsData, setPartsData] = useState([]); // Main table data
+  const [allLogs, setAllLogs] = useState([]); // Holds all history logs
+
+  // Modals
   const [showQrModal, setShowQrModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  
-  // QR & PDF States
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  // QR & PDF
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [qrPayload, setQrPayload] = useState(null);
   const [qrError, setQrError] = useState("");
   const [qrGenerating, setQrGenerating] = useState(false);
-  
-  // Editing States
-  const [editingPart, setEditingPart] = useState(null);
-  
-  // Form States (Tetap dipertahankan strukturnya)
-  const [editForm, setEditForm] = useState({
-    name_product: "",
-    woNumber: "",
-    startDate: "",
-    endDate: "",
-    status: "Working",
-    manpower: ""
-  });
-  
+
+  // History Selection
+  const [selectedPartHistory, setSelectedPartHistory] = useState(null);
+
+  // Simplified Add Form (Old fields removed as they don't exist in master product)
   const [addForm, setAddForm] = useState({
+    machine_name: "",
     name_product: "",
-    woNumber: "",
-    startDate: "",
-    endDate: "",
-    status: "Working",
-    manpower: ""
   });
 
-  // --- 1. FETCH DATA DARI API (LOG PRODUCT) ---
+  // --- 1. FETCH DATA (API Integration) ---
   useEffect(() => {
-    fetchParts();
+    fetchInitialData();
   }, []);
 
-  const fetchParts = async () => {
+  const fetchInitialData = async () => {
     try {
       setLoading(true);
-      const data = await getProductLogs();
-      
-      const mappedData = data.map((item, index) => {
-        // Ambil tanggal dari created_at
-        const logDate = item.created_at ? new Date(item.created_at).toISOString().split('T')[0] : "";
-        
-        return {
-          id: item.id || index,
-          no: index + 1,
-          name_product: item.name_product || "N/A",      // Mapping: Name
-          woNumber: item.machine_name || "N/A",
-          startDate: logDate,                    // Mapping: created_at
-          endDate: logDate,                      // Mapping: created_at
-          status: item.action || "Working",      // Mapping: action
-          manpower: item.name_manpower || "-"    // Mapping: Replace isClosed
-        };
-      });
-      
-      setPartsData(mappedData);
+      // Fetch both master list and logs in parallel
+      const [productsData, logsData] = await Promise.all([
+        getProductList(),
+        getProductLogs(),
+      ]);
+
+      // Map API data to add 'no' for table indexing
+      const mappedProducts = productsData.map((item, index) => ({
+        ...item,
+        no: index + 1,
+      }));
+
+      setPartsData(mappedProducts);
+      setAllLogs(logsData); // Store all logs for client-side filtering later
     } catch (error) {
-      console.error("Gagal mengambil data log:", error);
+      console.error("Error fetching data:", error);
+      alert("Failed to fetch data from server.");
     } finally {
       setLoading(false);
     }
   };
 
-  // --- 2. LOGIKA FILTER SEARCH ---
+  // --- 2. SEARCH FILTER ---
   const filteredParts = partsData.filter(
     (part) =>
-      part.name_product.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      part.woNumber.toLowerCase().includes(searchQuery.toLowerCase())
+      part.name_product?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      part.machine_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // --- 3. ADD PART HANDLERS ---
-  const handleAddPart = () => {
-    const today = new Date().toISOString().split('T')[0];
-    setAddForm({
-      name_product: "",
-      woNumber: "",
-      startDate: today,
-      endDate: today,
-      status: "Working",
-      manpower: ""
-    });
-    setShowAddModal(true);
-  };
+  // --- 3. HANDLERS ---
 
-  const handleAddFormChange = (field, value) => {
-    setAddForm(prev => ({ ...prev, [field]: value }));
-  };
-
-const handleSaveAdd = async () => {
-  if (!addForm.name_product || !addForm.woNumber) {
-    alert("Mohon isi field yang diperlukan!");
-    return;
-  }
-
-  try {
-    // 1. Payload ke backend
-    const payload = {
-      machine_name: addForm.woNumber,
-      name_product: addForm.name_product,
-      start_date: addForm.startDate
-    };
-
-    // 2. Call API
-    const response = await fetch("http://localhost:8000/addproduct", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      alert("Gagal menambah part: " + (result.detail || "Server error"));
-      return;
-    }
-
-    // 3. Update UI (SETELAH backend sukses)
-    const newNo =
-      partsData.length > 0
-        ? Math.max(...partsData.map(p => p.no)) + 1
-        : 1;
-
-    const newPart = {
-      no: newNo,
-      name_product: addForm.name_product,
-      woNumber: addForm.woNumber,
-      startDate: addForm.startDate,
-      endDate: addForm.startDate,
-      status: "stop",
-      manpower: "admin"
-    };
-
-    setPartsData(prev => [newPart, ...prev]);
-    setShowAddModal(false);
-    alert("Part berhasil ditambahkan!");
-
-  } catch (error) {
-    console.error(error);
-    alert("Koneksi ke server gagal!");
-  }
-};
-
-  // --- 4. EDIT PART HANDLERS ---
-  const handleSaveEdit = async () => {
-    try {
-      const payload = {
-        machine_name: editingPart.woNumber,
-        name_product: editForm.name_product
-      };
-
-      const response = await fetch("http://localhost:8000/editproduct", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        alert("Gagal edit product: " + (result.detail || "Server error"));
-        return;
-      }
-
-      // 🔥 REFRESH DARI LOG
-      await fetchParts();
-
-      setShowEditModal(false);
-      alert("Product berhasil diperbarui (status stop)");
-
-    } catch (error) {
-      console.error(error);
-      alert("Koneksi ke server gagal!");
-    }
-  };
-
-
-  // --- 5. DELETE HANDLER (SYNC DENGAN BACKEND) ---
-  const handleDelete = async (part) => {
-    if (!window.confirm(`Hapus ${part.name_product}?`)) return;
-
-    try {
-      const payload = {
-        machine_name: part.woNumber,
-        name_product: part.name_product
-      };
-
-      const response = await fetch("http://localhost:8000/delete_product", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        alert("Gagal menghapus: " + (result.detail || "Server error"));
-        return;
-      }
-
-      // 🔥 Update UI setelah backend sukses
-      setPartsData(prev =>
-        prev.filter(
-          p =>
-            !(
-              p.woNumber === part.woNumber &&
-              p.name_product === part.name_product
-            )
-        )
-      );
-
-      alert("Product berhasil dihapus");
-
-    } catch (error) {
-      console.error(error);
-      alert("Koneksi ke server gagal!");
-    }
-  };
-
-
-  // --- 6. QR & PDF LOGIC (FULL) ---
-  const sanitizeFilePart = (s) =>
-    String(s || "").trim().replace(/\s+/g, "_").replace(/[^\w\-]+/g, "_");
-
+  // QR Code Handler (Updated fields)
   const handleViewQR = async (part) => {
     try {
+      setQrError("");
+      setQrDataUrl("");
       setQrGenerating(true);
-      setShowQrModal(true);
-      const payload = { machine_name: String(part.woNumber), name_product: String(part.name_product) };
+
+      // Use new column names based on API requirement
+      const payload = {
+        machine_name: String(part.machine_name),
+        name_product: String(part.name_product),
+      };
+
       setQrPayload(payload);
 
-      const jsonString = JSON.stringify(payload).replace(/":/g, '": ').replace(/","/g, '", "');
-      const dataUrl = await QRCode.toDataURL(jsonString, { margin: 2, width: 320 });
+      const jsonString = JSON.stringify(payload)
+        .replace(/":/g, '": ')
+        .replace(/","/g, '", "');
+
+      const dataUrl = await QRCode.toDataURL(jsonString, {
+        margin: 2,
+        width: 320,
+        errorCorrectionLevel: "M",
+      });
+
       setQrDataUrl(dataUrl);
+      setShowQrModal(true);
     } catch (err) {
+      console.error(err);
       setQrError("Gagal generate QR Code.");
+      setShowQrModal(true);
     } finally {
       setQrGenerating(false);
     }
   };
 
-  const handleDownloadPdf = () => {
-    if (!qrPayload || !qrDataUrl) return;
-    const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
-    const qrSize = 100;
-    const x = (doc.internal.pageSize.getWidth() - qrSize) / 2;
-    doc.addImage(qrDataUrl, "PNG", x, 40, qrSize, qrSize);
-    doc.setFontSize(20);
-    doc.text(`machine_name : ${qrPayload.machine_name}`, x + 6, 160);
-    doc.text(`name_product  : ${qrPayload.name_product}`, x + 6, 170);
-    doc.save(`QR_${sanitizeFilePart(qrPayload.name_product)}.pdf`);
+  // History Handler (Updated logic to filter logs)
+  const handleViewHistory = (part) => {
+    // Filter the pre-fetched logs based on current part's machine and product name
+    const specificHistory = allLogs.filter(
+      (log) =>
+        log.machine_name === part.machine_name &&
+        log.name_product === part.name_product
+    );
+
+    setSelectedPartHistory({
+      machine_name: part.machine_name,
+      name_product: part.name_product,
+      history: specificHistory,
+    });
+    setShowHistoryModal(true);
+  };
+
+  // --- Modal Closers ---
+  const handleCloseQrModal = () => {
+    setShowQrModal(false);
+    setQrDataUrl("");
+    setQrPayload(null);
+    setQrError("");
+    setQrGenerating(false);
+  };
+
+  const handleCloseHistoryModal = () => {
+    setShowHistoryModal(false);
+    setSelectedPartHistory(null);
+  };
+
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setAddForm({ machine_name: "", name_product: "" });
+  };
+
+  // --- Add / Delete Handlers (Placeholder/Modified) ---
+  const handleAddPart = () => {
+    // Keeping the button active to maintain UI structure, but form is empty
+    setShowAddModal(true);
+  };
+  
+  // const handleDelete = (part) => {
+    // Delete functionality removed from requirements for this page
+  // };
+
+  // --- PDF Download ---
+  const handleDownloadPdf = async () => {
+    try {
+      if (!qrPayload || !qrDataUrl) return;
+      const sanitizeFilePart = (s) => String(s || "").trim().replace(/\s+/g, "_").replace(/[^\w\-]+/g, "_");
+      const woPart = sanitizeFilePart(qrPayload.machine_name);
+      const namaPart = sanitizeFilePart(qrPayload.name_product);
+      const filename = `QR_PART_${woPart}_${namaPart}.pdf`;
+      const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
+      const imgData = qrDataUrl;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const qrSize = 100;
+      const x = (pageWidth - qrSize) / 2;
+      const y = 40;
+      doc.addImage(imgData, "PNG", x, y, qrSize, qrSize);
+      const textY = y + qrSize + 20;
+      const textX = x + 6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(20);
+      const lines = [
+        `machine_name : ${qrPayload.machine_name}`,
+        `name_product : ${qrPayload.name_product}`,
+      ];
+      lines.forEach((line, i) => {
+        doc.text(line, textX, textY + i * 7);
+      });
+      doc.save(filename);
+    } catch (err) {
+      console.error(err);
+      alert("Gagal membuat PDF.");
+    }
   };
 
   // --- RENDER UI ---
@@ -283,49 +196,59 @@ const handleSaveAdd = async () => {
           <img src={searchIcon} alt="Search" className="search-icon" />
           <input
             type="text"
-            placeholder="Search Parts or Machine..."
+            placeholder="Search Machine or Product"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-input"
           />
         </div>
-        <button className="add-parts-btn" onClick={handleAddPart}>Add Parts</button>
+
+        {/* Kept button to maintain layout structure */}
+        <button className="add-parts-btn" onClick={handleAddPart}>
+          Add Parts
+        </button>
       </div>
 
       <div className="table-container">
-        {loading ? <p style={{textAlign:"center", padding:"2rem"}}>Memuat data dari log...</p> : (
+        {loading ? (
+          <p style={{ textAlign: "center", padding: "20px" }}>Loading data...</p>
+        ) : (
           <table className="parts-table">
             <thead>
               <tr>
+                {/* NEW COLUMN STRUCTURE */}
                 <th>No.</th>
-                <th>Name</th>
                 <th>Machine Name</th>
-                <th>Start Date</th>
-                <th>End Date</th>
-                <th>Status</th>
-                <th>Manpower</th>
-                <th className="text-center">Action</th>
+                <th>Name Product</th>
+                <th className="text-center" style={{ minWidth: "180px" }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {filteredParts.map((part) => (
                 <tr key={part.no}>
                   <td>{part.no}</td>
+                  {/* MAPPING API DATA */}
+                  <td>{part.machine_name}</td>
                   <td>{part.name_product}</td>
-                  <td>{part.woNumber}</td>
-                  <td>{part.startDate}</td>
-                  <td>{part.endDate}</td>
-                  <td>
-                    <span className={`status-badge status-${part.status.toLowerCase()}`}>
-                      {part.status}
-                    </span>
-                  </td>
-                  <td>{part.manpower}</td>
                   <td className="text-center">
-                    <div className="action-buttons">
-                      <button className="action-btn" onClick={() => handleViewQR(part)}><QrCode size={16} /> View QR</button>
-                      <button className="action-btn" onClick={() => handleEdit(part)}><Edit size={16} /> Edit</button>
-                      <button className="action-btn" onClick={() => handleDelete(part)}><Trash2 size={16} /> Delete</button>
+                    <div className="action-buttons" style={{ justifyContent: "center" }}>
+                      <button
+                        className="action-btn"
+                        onClick={() => handleViewQR(part)}
+                        title="View QR"
+                      >
+                        <QrCode size={16} />
+                        View QR
+                      </button>
+                      {/* Delete button removed */}
+                      <button
+                        className="action-btn"
+                        onClick={() => handleViewHistory(part)}
+                        title="History"
+                      >
+                        <History size={16} />
+                        History
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -335,90 +258,115 @@ const handleSaveAdd = async () => {
         )}
       </div>
 
-      {/* --- MODAL ADD (Struktur UI Dipertahankan) --- */}
-      {showAddModal && (
+      {/* --- MODALS --- */}
+
+      {/* HISTORY MODAL (Updated Structure) */}
+      {showHistoryModal && selectedPartHistory && (
         <>
-          <div className="modal-overlay" onClick={() => setShowAddModal(false)}></div>
-          <div className="modal">
+          <div className="modal-overlay" onClick={handleCloseHistoryModal}></div>
+          <div className="modal modal-large" style={{ maxWidth: "800px" }}>
             <div className="modal-header">
-              <h2>Add New Part</h2>
-              <button className="modal-close" onClick={() => setShowAddModal(false)}><X size={24} /></button>
+              {/* Shows which product we are viewing history for */}
+              <h2>History - {selectedPartHistory.name_product} ({selectedPartHistory.machine_name})</h2>
+              <button className="modal-close" onClick={handleCloseHistoryModal}>
+                <X size={24} />
+              </button>
             </div>
+
             <div className="modal-body">
-              <div className="form-group">
-                <label>Name *</label>
-                <input type="text" className="form-input" value={addForm.name_product} onChange={(e) => handleAddFormChange("name_product", e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label>Machine Name *</label>
-                <input type="text" className="form-input" value={addForm.woNumber} onChange={(e) => handleAddFormChange("woNumber", e.target.value)} />
-              </div>
-              <div className="form-row">
-                <div className="form-group"><label>Start Date</label><input type="date" className="form-input" value={addForm.startDate} onChange={(e) => handleAddFormChange("startDate", e.target.value)} /></div>
-                <div className="form-group"><label>End Date</label><input type="date" className="form-input" value={addForm.endDate} onChange={(e) => handleAddFormChange("endDate", e.target.value)} /></div>
-              </div>
-              <div className="form-group">
-                <label>Manpower</label>
-                <input type="text" className="form-input" value={addForm.manpower} onChange={(e) => handleAddFormChange("manpower", e.target.value)} placeholder="Nama Manpower" />
-              </div>
+              {selectedPartHistory.history && selectedPartHistory.history.length > 0 ? (
+                <div className="history-table-container" style={{ maxHeight: "400px", overflowY: "auto" }}>
+                  <table className="history-table">
+                    <thead>
+                      <tr>
+                        {/* Columns match log_product structure data relevant for display */}
+                        <th>No.</th>
+                        <th>Log Date</th>
+                        <th>Action</th>
+                        <th>Manpower</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedPartHistory.history.map((log, index) => (
+                        <tr key={log.id || index}>
+                          <td>{index + 1}</td>
+                          {/* Format created_at */}
+                          <td>{new Date(log.created_at).toLocaleString()}</td>
+                          <td>
+                            {/* Simple styling for action (start/stop) */}
+                            <span className={`history-status status-${log.action.toLowerCase()}`}>
+                              {log.action}
+                            </span>
+                          </td>
+                          <td>{log.name_manpower}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p style={{ textAlign: "center", color: "#666", padding: "20px" }}>
+                  No history logs found for this product on this machine.
+                </p>
+              )}
             </div>
             <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setShowAddModal(false)}>Cancel</button>
-              <button className="btn-save" onClick={handleSaveAdd}>Add Part</button>
+              <button className="btn-cancel" onClick={handleCloseHistoryModal}>Close</button>
             </div>
           </div>
         </>
       )}
 
-      {/* --- MODAL EDIT (Struktur UI Dipertahankan) --- */}
-      {showEditModal && (
-        <>
-          <div className="modal-overlay" onClick={() => setShowEditModal(false)}></div>
-          <div className="modal">
-            <div className="modal-header">
-              <h2>Edit Part</h2>
-              <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={24} /></button>
-            </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Machine Name (Read Only)</label>
-                <input type="text" className="form-input disabled" value={editForm.woNumber} disabled />
-              </div>
-              <div className="form-group">
-                <label>Name</label>
-                <input type="text" className="form-input" value={editForm.name_product} onChange={(e) => handleEditFormChange("name_product", e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label>Status</label>
-                <select className="form-input" value={editForm.status} onChange={(e) => handleEditFormChange("status", e.target.value)}>
-                  <option value="start">start</option>
-                  <option value="stop">stop</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Manpower</label>
-                <input type="text" className="form-input" value={editForm.manpower} onChange={(e) => handleEditFormChange("manpower", e.target.value)} />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setShowEditModal(false)}>Cancel</button>
-              <button className="btn-save" onClick={handleSaveEdit}>Save Changes</button>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* --- MODAL QR --- */}
+      {/* QR MODAL (Kept existing structure) */}
       {showQrModal && (
         <>
-          <div className="modal-overlay" onClick={() => setShowQrModal(false)}></div>
+          <div className="modal-overlay" onClick={handleCloseQrModal}></div>
           <div className="modal">
-            <div className="modal-header"><h2>QR Code</h2><button className="modal-close" onClick={() => setShowQrModal(false)}><X size={24} /></button></div>
+            <div className="modal-header">
+              <h2>QR Code</h2>
+              <button className="modal-close" onClick={handleCloseQrModal}><X size={24} /></button>
+            </div>
             <div className="modal-body" style={{ textAlign: "center" }}>
-              {qrGenerating ? <p>Generating...</p> : qrDataUrl && <img src={qrDataUrl} alt="QR" style={{ width: 300 }} />}
+              {qrError ? (
+                <p className="error-text">{qrError}</p>
+              ) : qrGenerating ? (
+                <p>Generating QR...</p>
+              ) : (
+                qrDataUrl && <img src={qrDataUrl} alt="QR Code" style={{ width: 320, maxWidth: "100%", borderRadius: 8 }} />
+              )}
             </div>
             <div className="modal-footer">
-              <button className="btn-save" onClick={handleDownloadPdf}>Download PDF</button>
+              <button className="btn-cancel" onClick={handleCloseQrModal}>Close</button>
+              {qrDataUrl && !qrError && (
+                <button className="btn-save" onClick={handleDownloadPdf}>Download PDF</button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ADD MODAL (Kept structure, but fields commented out as they don't fit new data model) */}
+      {showAddModal && (
+        <>
+          <div className="modal-overlay" onClick={handleCloseAddModal}></div>
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Add New Part (Master)</h2>
+              <button className="modal-close" onClick={handleCloseAddModal}><X size={24} /></button>
+            </div>
+            <div className="modal-body">
+              <p>Adding new master products is not yet implemented via API.</p>
+              {/* OLD FORM FIELDS COMMENTED OUT DUE TO SCHEMA CHANGE
+              <div className="form-group">
+                <label>Nama Parts *</label>
+                <input type="text" value={addForm.nama} onChange={(e) => setAddForm({ ...addForm, nama: e.target.value })} className="form-input" />
+              </div>
+               ... other fields ...
+              */}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={handleCloseAddModal}>Close</button>
+              {/* <button className="btn-save" onClick={() => alert("Not implemented")}>Add Part</button> */}
             </div>
           </div>
         </>

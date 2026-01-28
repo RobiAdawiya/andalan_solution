@@ -18,6 +18,29 @@ export default function Dashboard() {
   const [latestData, setLatestData] = useState({});
   const [counts, setCounts] = useState({ manpower: 0, parts: 0 });
 
+  // --- CONFIGURATION: ATTRIBUTES TO DISPLAY ON CARD ---
+  // Define the 14 attributes, their labels, units, and icons here.
+  const cardAttributes = [
+    { tag: "PA330:Voltage", label: "Voltage", unit: " V", icon: <Zap size={16} /> },
+    { tag: "PA330:Current", label: "Current", unit: " A", icon: <Battery size={16} /> }, // Using Battery as proxy for current
+    { tag: "PA330:Real_Power", label: "Power", unit: " kW", icon: <TrendingUp size={16} /> },
+    { tag: "PA330:Energy", label: "Energy", unit: " kWh", icon: <Zap size={16} /> },
+    { tag: "WISE4010:Temperature", label: "Temp", unit: "°C", icon: <Thermometer size={16} /> },
+    // Statuses & Indicators (Using generic icons like Activity or Cpu)
+    { tag: "Machine_Status", label: "Mach. Status", unit: "", icon: <Activity size={16} /> },
+    { tag: "Validation_Status", label: "Valid. Status", unit: "", icon: <Activity size={16} /> },
+    { tag: "WISE4010:Green_Lamp", label: "Green Lamp", unit: "", icon: <Cpu size={16} /> },
+    { tag: "WISE4010:Red_Lamp", label: "Red Lamp", unit: "", icon: <Cpu size={16} /> },
+    { tag: "WISE4010:Contactor", label: "Contactor", unit: "", icon: <Cpu size={16} /> },
+    // Push Buttons
+    { tag: "WISE4050:PB_Start", label: "PB Start", unit: "", icon: <Cpu size={16} /> },
+    { tag: "WISE4050:PB_EMG", label: "PB EMG", unit: "", icon: <Cpu size={16} /> },
+    // Validations Data
+    { tag: "ManPower_Validation", label: "Manpower", unit: "", icon: <Users size={16} /> },
+    { tag: "Product_Validation", label: "Product", unit: "", icon: <ClipboardList size={16} /> },
+  ];
+
+
   // --- 1. DATA FETCHING & SYNC ---
   const fetchDashboardData = async () => {
     try {
@@ -63,16 +86,7 @@ export default function Dashboard() {
       deviceStatus: latestData["Machine_Status"] || "OFFLINE",
       lastMaintenance: "2026-01-20",
       uptime: "98.5%",
-      // Power Meter Parameters dari DB
-      voltage: `${latestData["PA330:Voltage"] || 0} V`,
-      current: `${latestData["PA330:Current"] || 0} A`,
-      power: `${latestData["PA330:Real_Power"] || 0} kW`,
-      kwh: `${latestData["PA330:Energy"] || 0} kWh`,
-      powerFactor: latestData["PA330:Power_Factor"] || "0.95",
-      frequency: "50 Hz",
-      temperature: `${latestData["WISE4010:Temperature"] || 0}°C`,
-      pressure: "2.5 Bar",
-      runtime: "2,340 hrs",
+      // Note: Individual parameters are now handled directly in the render loop using latestData
       
       // Validation & Assignment
       assignedManPower: latestData["ManPower_Validation"] || "No Operator",
@@ -97,7 +111,7 @@ export default function Dashboard() {
   ];
 
   const stats = [
-    { label: "Device Active", count: devices.length, icon: <Monitor size={32} /> },
+    { label: "Machine", count: devices.length, icon: <Monitor size={32} /> },
     { label: "Man Power", count: counts.manpower, icon: <Users size={32} /> },
     { label: "Parts Linked", count: counts.parts, icon: <Wrench size={32} /> },
     { label: "Work Order", count: 6, icon: <ClipboardList size={32} /> },
@@ -134,12 +148,24 @@ export default function Dashboard() {
                 </span>
               </div>
 
-              <div className="device-card-info">
+              <div className="device-card-info" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                {/* Uptime is kept hardcoded from device object as it's not in logs */}
                 <div className="info-row"><Activity size={16} /> <span>Uptime: {device.uptime}</span></div>
-                <div className="info-row"><Zap size={16} /> <span>Voltage: {device.voltage}</span></div>
-                <div className="info-row"><TrendingUp size={16} /> <span>Power: {device.power}</span></div>
-                <div className="info-row"><Thermometer size={16} /> <span>Temp: {device.temperature}</span></div>
-                <div className="info-row"><Gauge size={16} /> <span>Pressure: {device.pressure}</span></div>
+
+                {/* DYNAMICALLY RENDER THE 14 ATTRIBUTES */}
+                {cardAttributes.map((attr, index) => {
+                  // Get value directly from latestData pivot, default to "N/A" if missing
+                  const rawValue = latestData[attr.tag] ?? "N/A";
+                  return (
+                    <div className="info-row" key={index}>
+                      {attr.icon}
+                      {/* Use title for hover tooltip in case labels get cut off */}
+                      <span title={`${attr.label}: ${rawValue}${attr.unit}`}>
+                        {attr.label}: {rawValue}{attr.unit}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
 
               <button className="btn-view-details" onClick={() => handleViewDetails(device)}>
@@ -150,7 +176,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* MODAL DETAIL (FITUR LENGKAP) */}
+      {/* MODAL DETAIL (FITUR LENGKAP - UNCHANGED) */}
       {showDetailModal && selectedDevice && (
         <>
           <div className="modal-overlay" onClick={() => setShowDetailModal(false)}></div>
@@ -222,13 +248,14 @@ export default function Dashboard() {
                     <span className="label">Work Order</span>
                     <span className="value">{selectedDevice.assignedWorkOrder}</span>
                   </div>
+                  {/* Using raw data from latestData for modal as well for consistency */}
                   <div className="detail-item-simple">
                     <span className="label">Voltage</span>
-                    <span className="value">{selectedDevice.voltage}</span>
+                    <span className="value">{latestData["PA330:Voltage"] || 0} V</span>
                   </div>
                   <div className="detail-item-simple">
                     <span className="label">Energy (Accumulated)</span>
-                    <span className="value">{selectedDevice.kwh}</span>
+                    <span className="value">{latestData["PA330:Energy"] || 0} kWh</span>
                   </div>
                 </div>
               </div>

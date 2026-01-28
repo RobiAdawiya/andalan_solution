@@ -1,55 +1,58 @@
 import { useState, useEffect } from "react";
-import { Edit, Trash2, X } from "lucide-react";
+import { Edit, Trash2, X } from "lucide-react"; // Removed QrCode icon
+// Removed QRCode and jsPDF imports
 import searchIcon from "../assets/search.png";
 import "../styles/device.css";
-// Import fungsi API (Pastikan getMachineLogs tersedia di services/api)
-import { getMachineLogs } from "../services/api"; 
+// Import fungsi API (Pastikan getProductList tersedia di services/api)
+import { getProductList } from "../services/api";
 
 export default function Device() {
+  // --- MAIN STATE ---
   const [searchQuery, setSearchQuery] = useState("");
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingDevice, setEditingDevice] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // --- STATE DATA ---
   const [devices, setDevices] = useState([]);
 
+  // --- MODAL STATES ---
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  // Removed showQrModal state
+
+  // Removed QR & PDF STATES (qrDataUrl, qrPayload, qrGenerating)
+
+  // --- FORM STATES ---
+  const [editingDevice, setEditingDevice] = useState(null);
+
   const [addForm, setAddForm] = useState({
-    machine_id: "",
-    tag_name: "",
-    tag_value: "",
-    status: "Active"
+    machine_name: "",
+    name_product: ""
   });
 
   const [editForm, setEditForm] = useState({
-    machine_id: "",
-    tag_name: "",
-    tag_value: "",
-    status: "Active"
+    machine_name: "",
+    name_product: ""
   });
 
   // --- 1. FETCH DATA DARI DATABASE ---
   useEffect(() => {
-    fetchMachineLogs();
+    fetchProducts();
   }, []);
 
-  const fetchMachineLogs = async () => {
+  const fetchProducts = async () => {
     try {
       setLoading(true);
-      const data = await getMachineLogs();
-      // Mapping data dari log_machine ke struktur state lokal
+      // Assuming getProductList returns an array of objects with machine_name and name_product
+      const data = await getProductList();
+
       const mappedData = data.map((item, index) => ({
         no: index + 1,
-        machine_id: item.machine_id,
-        tag_name: item.tag_name,
-        tag_value: item.tag_value,
-        created_at: item.created_at, // Format dari PostgreSQL biasanya sudah string ISO
-        status: "Active" // Default status karena tabel log biasanya tidak punya field status
+        // Adjust these keys based on exactly what your API returns if different
+        machine_name: item.machine_name || item.machine_id || "N/A",
+        name_product: item.name_product || item.tag_name || "N/A",
       }));
       setDevices(mappedData);
     } catch (error) {
-      console.error("Gagal mengambil data machine logs:", error);
+      console.error("Gagal mengambil data product:", error);
+      alert("Failed to fetch data from database");
     } finally {
       setLoading(false);
     }
@@ -57,71 +60,86 @@ export default function Device() {
 
   // --- 2. FITUR FILTER/SEARCH ---
   const filteredDevices = devices.filter(device =>
-    device.machine_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    device.tag_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    device.machine_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    device.name_product?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // --- 3. FITUR ADD DEVICE (STATE LOKAL) ---
+  // --- 3. FITUR ADD DEVICE (Simplified Local State for now) ---
   const handleAddDevice = () => {
-    setAddForm({ machine_id: "", tag_name: "", tag_value: "", status: "Active" });
+    setAddForm({ machine_name: "", name_product: "" });
     setShowAddModal(true);
   };
 
   const handleSaveAdd = () => {
-    if (!addForm.machine_id || !addForm.tag_name) {
+    if (!addForm.machine_name || !addForm.name_product) {
       alert("Please fill in all required fields");
       return;
     }
-
+    // Note: This is currently local add. Connect to API if needed later.
     const newNo = devices.length > 0 ? Math.max(...devices.map(d => d.no)) + 1 : 1;
-    const newDevice = {
-      ...addForm,
-      no: newNo,
-      created_at: new Date().toLocaleString()
-    };
+    const newDevice = { ...addForm, no: newNo };
 
     setDevices(prev => [newDevice, ...prev]);
     setShowAddModal(false);
-    alert("Device log added successfully!");
+    alert("Device added locally!");
   };
 
-  // --- 4. FITUR EDIT DEVICE (STATE LOKAL) ---
+  // --- 4. FITUR EDIT DEVICE (API BACKEND INTEGRATION) ---
   const handleEdit = (device) => {
     setEditingDevice(device);
     setEditForm({
-      machine_id: device.machine_id,
-      tag_name: device.tag_name,
-      tag_value: device.tag_value,
-      status: device.status
+      machine_name: device.machine_name,
+      name_product: device.name_product
     });
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = () => {
-    setDevices(prevData =>
-      prevData.map(device =>
-        device.no === editingDevice.no ? { ...device, ...editForm } : device
-      )
-    );
-    setShowEditModal(false);
-    alert("Device log updated successfully!");
+  // Using the API approach from your Parts example
+  const handleSaveEdit = async () => {
+    try {
+      const payload = {
+        machine_name: editForm.machine_name, // Usually used as the identifier
+        name_product: editForm.name_product  // The value to update
+      };
+
+      // Assuming this endpoint exists as per your Parts example
+      const response = await fetch("http://localhost:8000/editproduct", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        alert("Gagal edit product: " + (result.detail || "Server error"));
+        return;
+      }
+
+      // 🔥 REFRESH DATA FROM DB ON SUCCESS
+      await fetchProducts();
+
+      setShowEditModal(false);
+      alert("Product updated successfully in database!");
+
+    } catch (error) {
+      console.error("Edit Error:", error);
+      alert("Connection to server failed!");
+    }
   };
 
-  // --- 5. FITUR DELETE & STATUS ---
+  // --- 5. FITUR DELETE (Kept Local as per original code) ---
   const handleDelete = (device) => {
-    if (window.confirm(`Are you sure you want to delete log for ${device.machine_id}?`)) {
+    if (window.confirm(`Are you sure you want to delete ${device.name_product} on ${device.machine_name}? (Local delete only)`)) {
       setDevices(prevData => prevData.filter(d => d.no !== device.no));
     }
   };
 
-  const handleStatusChange = (deviceNo, newStatus) => {
-    setDevices(prevData =>
-      prevData.map(device =>
-        device.no === deviceNo ? { ...device, status: newStatus } : device
-      )
-    );
-  };
+  // Removed QR Code & PDF Logic functions
 
+  // --- RENDER UI ---
   return (
     <div>
       <div className="device-top">
@@ -129,7 +147,7 @@ export default function Device() {
           <img src={searchIcon} alt="Search" className="search-icon" />
           <input
             type="text"
-            placeholder="Search by Machine ID or Tag..."
+            placeholder="Search Machine Name or Product Name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-input"
@@ -142,43 +160,31 @@ export default function Device() {
       </div>
 
       <div className="table-container">
-        {loading ? <p style={{textAlign: "center", padding: "2rem"}}>Loading from Database...</p> : (
+        {loading ? <p style={{ textAlign: "center", padding: "2rem" }}>Loading Data...</p> : (
           <table className="device-table">
             <thead>
               <tr>
                 <th>No.</th>
-                <th>Machine ID</th>
-                <th>Tag Name</th>
-                <th>Tag Value</th>
-                <th>Created At</th>
-                <th>Status</th>
-                <th className="text-center">Action</th>
+                <th>Machine Name</th>
+                <th>Name Product</th>
+                {/* Reduced min-width since there are fewer buttons */}
+                <th className="text-center" style={{minWidth: "180px"}}>Action</th>
               </tr>
             </thead>
             <tbody>
               {filteredDevices.map((device) => (
                 <tr key={device.no}>
                   <td>{device.no}</td>
-                  <td>{device.machine_id}</td>
-                  <td>{device.tag_name}</td>
-                  <td>{device.tag_value}</td>
-                  <td>{new Date(device.created_at).toLocaleString()}</td>
-                  <td>
-                    <select 
-                      className={`status-select ${device.status === "Active" ? "status-active" : "status-inactive"}`}
-                      value={device.status}
-                      onChange={(e) => handleStatusChange(device.no, e.target.value)}
-                    >
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </td>
+                  <td>{device.machine_name}</td>
+                  <td>{device.name_product}</td>
+                  
                   <td className="text-center">
-                    <div className="action-buttons">
-                      <button className="action-btn btn-edit" onClick={() => handleEdit(device)}>
+                    <div className="action-buttons" style={{justifyContent: "center"}}>
+                      {/* Removed QR Button */}
+                      <button className="action-btn btn-edit" onClick={() => handleEdit(device)} title="Edit">
                         <Edit size={16} /> Edit
                       </button>
-                      <button className="action-btn btn-delete" onClick={() => handleDelete(device)}>
+                      <button className="action-btn btn-delete" onClick={() => handleDelete(device)} title="Delete">
                         <Trash2 size={16} /> Delete
                       </button>
                     </div>
@@ -189,7 +195,7 @@ export default function Device() {
           </table>
         )}
       </div>
-      
+
       {/* MODAL ADD */}
       {showAddModal && (
         <>
@@ -201,16 +207,12 @@ export default function Device() {
             </div>
             <div className="modal-body">
               <div className="form-group">
-                <label>Machine ID *</label>
-                <input type="text" value={addForm.machine_id} onChange={(e) => setAddForm({...addForm, machine_id: e.target.value})} className="form-input" placeholder="Enter machine id" />
+                <label>Machine Name *</label>
+                <input type="text" value={addForm.machine_name} onChange={(e) => setAddForm({ ...addForm, machine_name: e.target.value })} className="form-input" placeholder="Enter machine name" />
               </div>
               <div className="form-group">
-                <label>Tag Name *</label>
-                <input type="text" value={addForm.tag_name} onChange={(e) => setAddForm({...addForm, tag_name: e.target.value})} className="form-input" placeholder="Enter tag name" />
-              </div>
-              <div className="form-group">
-                <label>Tag Value</label>
-                <input type="text" value={addForm.tag_value} onChange={(e) => setAddForm({...addForm, tag_value: e.target.value})} className="form-input" placeholder="Enter value" />
+                <label>Name Product *</label>
+                <input type="text" value={addForm.name_product} onChange={(e) => setAddForm({ ...addForm, name_product: e.target.value })} className="form-input" placeholder="Enter product name" />
               </div>
             </div>
             <div className="modal-footer">
@@ -227,21 +229,17 @@ export default function Device() {
           <div className="modal-overlay" onClick={() => setShowEditModal(false)}></div>
           <div className="modal">
             <div className="modal-header">
-              <h2>Edit Machine Log</h2>
+              <h2>Edit Device (Database)</h2>
               <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={24} /></button>
             </div>
             <div className="modal-body">
               <div className="form-group">
-                <label>Machine ID (Read Only)</label>
-                <input type="text" value={editForm.machine_id} disabled className="form-input disabled" />
+                <label>Machine Name (Read Only)</label>
+                <input type="text" value={editForm.machine_name} disabled className="form-input disabled" />
               </div>
               <div className="form-group">
-                <label>Tag Name</label>
-                <input type="text" value={editForm.tag_name} onChange={(e) => setEditForm({...editForm, tag_name: e.target.value})} className="form-input" />
-              </div>
-              <div className="form-group">
-                <label>Tag Value</label>
-                <input type="text" value={editForm.tag_value} onChange={(e) => setEditForm({...editForm, tag_value: e.target.value})} className="form-input" />
+                <label>Name Product</label>
+                <input type="text" value={editForm.name_product} onChange={(e) => setEditForm({ ...editForm, name_product: e.target.value })} className="form-input" />
               </div>
             </div>
             <div className="modal-footer">
@@ -251,6 +249,8 @@ export default function Device() {
           </div>
         </>
       )}
+
+      {/* Removed QR Modal Component */}
     </div>
   );
 }
