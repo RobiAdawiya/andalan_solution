@@ -12,7 +12,6 @@ app = FastAPI(
     title="API Monitoring Produksi & Manpower",
     version="1.1.0"
 )
-
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
