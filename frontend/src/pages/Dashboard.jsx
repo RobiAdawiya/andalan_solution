@@ -15,14 +15,35 @@ export default function Dashboard() {
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [startDate, setStartDate] = useState("2025-08-05");
-  const [endDate, setEndDate] = useState("2026-01-27");
+  const [endDate, setEndDate] = useState("2026-01-29");
   const [latestData, setLatestData] = useState({});
   const [counts, setCounts] = useState({ manpower: 0, parts: 0 });
   const [activePart, setActivePart] = useState("Scanning...");
+  const [dynamicStatusSummary, setDynamicStatusSummary] = useState({
+    running: "00:00:00",
+    standby: "00:00:00",
+    total: "00:00:00"
+  });
+  const [dynamicChartTimeline, setDynamicChartTimeline] = useState([]);
+  
+  // NEW: State for dynamic labels
+  const [timelineLabels, setTimelineLabels] = useState(["08:00", "12:00", "16:00", "20:00"]);
+
+  // Helper function to format seconds to HH:MM:SS
+  const formatTime = (seconds) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   // --- 1. DATA FETCHING & SYNC ---
   const fetchDashboardData = async () => {
     try {
+      const startFilter = new Date(startDate);
+      const endFilter = new Date(endDate);
+      endFilter.setHours(23, 59, 59, 999);
+
       const [machineLogs, manpowerData, partsData, productLogs] = await Promise.all([
         getMachineLogs(),
         getManpowerList(),
@@ -35,13 +56,22 @@ export default function Dashboard() {
       machineLogs.forEach((log) => {
         if (!(log.tag_name in pivot)) {
           pivot[log.tag_name] = log.tag_value;
+          pivot["machine_id"] = log.machine_id;
         }
       });
       setLatestData(pivot);
 
-      // Menentukan Active Part dari Product Logs
-      const currentMachineId = pivot["machine_id"] || "Channe-Test1";
-      const latestLog = productLogs.find(log => log.machine_name === currentMachineId);
+      // Filter Product Logs by Date Range
+      const filteredProductLogs = productLogs.filter(log => {
+        const logDate = new Date(log.created_at);
+        return logDate >= startFilter && logDate <= endFilter;
+      });
+
+      // Menentukan Active Part dari Filtered Product Logs
+      const currentMachineId = pivot["machine_id"] || "machine_01";
+      const latestLog = filteredProductLogs.find(log => 
+        log.machine_name === currentMachineId || log.machine_name === "EXYNOS"
+      );
       
       let currentPartName = "No Part Active";
       if (latestLog && (latestLog.action === 'start' || latestLog.action === 'Working')) {
@@ -53,6 +83,65 @@ export default function Dashboard() {
         manpower: manpowerData.length,
         parts: partsData.length
       });
+
+      // Process Machine_Status logs for dynamic statusSummary and chartTimeline with Date Filter
+      const statusLogs = machineLogs
+        .filter(log => log.tag_name === "Machine_Status")
+        .filter(log => {
+          const logDate = new Date(log.created_at);
+          return logDate >= startFilter && logDate <= endFilter;
+        })
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+      let runningTime = 0;
+      let standbyTime = 0; 
+      const segments = [];
+
+      for (let i = 0; i < statusLogs.length - 1; i++) {
+        const current = statusLogs[i];
+        const next = statusLogs[i + 1];
+        const duration = (new Date(next.created_at) - new Date(current.created_at)) / 1000;
+
+        const start = new Date(current.created_at).toTimeString().slice(0, 5);
+        const end = new Date(next.created_at).toTimeString().slice(0, 5);
+        let status, color;
+
+        if (parseFloat(current.tag_value) === 1.0) {
+          status = "RUNNING";
+          color = "#00BCD4";
+          runningTime += duration;
+        } else {
+          status = "STOP"; 
+          color = "#FF5252";
+          standbyTime += duration;
+        }
+
+        segments.push({ start, end, status, color });
+      }
+
+      // --- GENERATE DYNAMIC TIMELINE LABELS ---
+      if (statusLogs.length >= 2) {
+        const firstTime = new Date(statusLogs[0].created_at);
+        const lastTime = new Date(statusLogs[statusLogs.length - 1].created_at);
+        const labelCount = 5; 
+        const newLabels = [];
+        const intervalMs = (lastTime - firstTime) / (labelCount - 1);
+
+        for (let i = 0; i < labelCount; i++) {
+          const labelTime = new Date(firstTime.getTime() + (intervalMs * i));
+          newLabels.push(labelTime.toTimeString().slice(0, 5));
+        }
+        setTimelineLabels(newLabels);
+      }
+
+      const totalTime = runningTime + standbyTime;
+      setDynamicStatusSummary({
+        running: formatTime(runningTime),
+        standby: formatTime(standbyTime),
+        total: formatTime(totalTime)
+      });
+      setDynamicChartTimeline(segments);
+
       setLoading(false);
     } catch (error) {
       console.error("Sync Error:", error);
@@ -62,19 +151,19 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 5000); // Auto refresh setiap 5 detik
+    const interval = setInterval(fetchDashboardData, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [startDate, endDate]);
 
   // --- 2. DYNAMIC MAPPING (Merging UI & API Data) ---
   const devices = [
     {
       id: 1,
       name: "Machine 01",
-      deviceName: latestData["machine_id"] || "Channe-Test1",
+      deviceName: latestData["machine_id"] || "Machine-01",
       status: latestData["WISE4010:Green_Lamp"] === "1" ? "Active" : "Warning",
-      deviceStatus: latestData["Machine_Status"] || "OFFLINE",
-      lastMaintenance: "2026-01-20", // Static/Placeholder
+      deviceStatus: parseFloat(latestData["Machine_Status"]) === 1.0 ? "RUNNING" : "STOP",
+      lastMaintenance: "2026-01-20", 
       uptime: "98.5%",
       
       // Power Meter Parameters (Fetched from API)
@@ -83,35 +172,26 @@ export default function Dashboard() {
       power: `${latestData["PA330:Real_Power"] || 0} kW`,
       kwh: `${latestData["PA330:Energy"] || 0} kWh`,
       powerFactor: latestData["PA330:Power_Factor"] || "0.95",
-      frequency: "50 Hz",
+      // frequency: "50 Hz",
       temperature: `${latestData["WISE4010:Temperature"] || 0}°C`,
-      pressure: "2.5 Bar",
+      // pressure: "2.5 Bar",
       
       // Assignment Data
       assignedManPower: latestData["ManPower_Validation"] || "No Operator",
-      assignedWorkOrder: latestData["Product_Validation"] || "No WO",
+      // assignedWorkOrder: latestData["Product_Validation"] || "No WO",
       assignedParts: activePart, 
       
-      // UI Features: Timeline & History
-      statusSummary: {
-        running: "03:05:17", // Placeholder, idealnya dari kalkulasi log
-        standby: "00:15:21",
-        total: "04:06:38"
-      },
-      chartTimeline: [
-        { start: "08:00", end: "10:00", status: "RUNNING", color: "#00BCD4" },
-        { start: "10:00", end: "11:00", status: "STOP", color: "#FF5252" },
-        { start: "11:00", end: "15:00", status: "RUNNING", color: "#00BCD4" },
-        { start: "15:00", end: "18:00", status: "STAND BY", color: "#FFC107" },
-      ],
+      // UI Features: Timeline & History (Now Dynamic)
+      statusSummary: dynamicStatusSummary,
+      chartTimeline: dynamicChartTimeline,
       historyTable: [
         { 
             no: 1, 
-            status: latestData["Machine_Status"] || "RUNNING", 
-            from: "2025-08-05 05:00:00", 
+            status: parseFloat(latestData["Machine_Status"]) === 1.0 ? "RUNNING" : "STOP", 
+            from: startDate, 
             until: new Date().toLocaleString(), 
             manPower: latestData["ManPower_Validation"] || "N/A", 
-            workOrder: latestData["Product_Validation"] || "N/A", 
+            // workOrder: latestData["Product_Validation"] || "N/A", 
             part: activePart 
         },
       ]
@@ -142,14 +222,12 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* Top Stats Cards */}
       <div className="stat-row">
         {stats.map((s, i) => (
           <StatCard key={i} {...s} />
         ))}
       </div>
 
-      {/* Main Grid Devices */}
       <div className="device-grid">
         {loading ? (
           <div className="loading-state">Syncing with IoT Gateway...</div>
@@ -158,7 +236,7 @@ export default function Dashboard() {
             <div key={device.id} className="device-card-dashboard">
               <div className="device-card-header">
                 <h3>{device.name}</h3>
-                <span className={`device-badge status-${device.status.toLowerCase()}`}>
+                <span className={`device-badge status-${device.deviceStatus === "RUNNING" ? "active" : "warning"}`}>
                   {device.deviceStatus}
                 </span>
               </div>
@@ -169,7 +247,7 @@ export default function Dashboard() {
                 <div className="info-row"><Battery size={16} /> <span>Current: {device.current}</span></div>
                 <div className="info-row"><TrendingUp size={16} /> <span>Power: {device.power}</span></div>
                 <div className="info-row"><Thermometer size={16} /> <span>Temp: {device.temperature}</span></div>
-                <div className="info-row"><Users size={16} /> <span>Operator: {device.assignedManPower}</span></div>
+                {/* <div className="info-row"><Users size={16} /> <span>Operator: {device.assignedManPower}</span></div> */}
               </div>
 
               <button className="btn-view-details" onClick={() => handleViewDetails(device)}>
@@ -180,7 +258,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* MODAL DETAIL (FULL FEATURES) */}
       {showDetailModal && selectedDevice && (
         <>
           <div className="modal-overlay" onClick={handleCloseModal}></div>
@@ -193,7 +270,6 @@ export default function Dashboard() {
             </div>
 
             <div className="modal-body">
-              {/* Date Filter & Export */}
               <div className="history-section">
                 <div className="date-range-container">
                   <div className="date-input-group">
@@ -211,7 +287,6 @@ export default function Dashboard() {
               </div>
 
               <div className="content-grid">
-                {/* Left Side: Chart & Timeline */}
                 <div className="chart-section">
                   <h3>Operation Timeline</h3>
                   <div className="status-summary">
@@ -241,22 +316,24 @@ export default function Dashboard() {
                       ))}
                     </div>
                     <div className="timeline-labels">
-                      <span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span>
+                      {/* DYNAMIC LABELS GENERATED FROM DB */}
+                      {timelineLabels.map((time, idx) => (
+                        <span key={idx}>{time}</span>
+                      ))}
                     </div>
                   </div>
                 </div>
 
-                {/* Right Side: Detailed Sensor Info */}
                 <div className="detail-section">
                   <h3>Validation & Sensor Data</h3>
                   <div className="detail-item-simple">
                     <span className="label">Operator Name</span>
                     <span className="value">{selectedDevice.assignedManPower}</span>
                   </div>
-                  <div className="detail-item-simple">
+                  {/* <div className="detail-item-simple">
                     <span className="label">Work Order (WO)</span>
                     <span className="value">{selectedDevice.assignedWorkOrder}</span>
-                  </div>
+                  </div> */}
                   <div className="detail-item-simple">
                     <span className="label">Active Part</span>
                     <span className="value" style={{fontWeight:'bold', color: '#007bff'}}>{selectedDevice.assignedParts}</span>
@@ -292,7 +369,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Bottom: History Table */}
               <div className="history-table-section">
                 <h3>Tabel History Status</h3>
                 <table className="history-table">
@@ -302,20 +378,20 @@ export default function Dashboard() {
                       <th>From</th>
                       <th>Until</th>
                       <th>Man Power</th>
-                      <th>Work Order</th>
-                      <th>RPO Number</th>
+                      {/* <th>Work Order</th> */}
+                      {/* <th>RPO Number</th> */}
                       <th>Part</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedDevice.historyTable.map((row, i) => (
                       <tr key={i}>
-                        <td><span className={`table-status-badge ${row.status.toLowerCase()}`}>{row.status}</span></td>
+                        <td><span className={`table-status-badge ${row.status === "RUNNING" ? "status-active" : "status-stop"}`}>{row.status}</span></td>
                         <td>{row.from}</td>
                         <td>{row.until}</td>
                         <td>{row.manPower}</td>
-                        <td>{row.workOrder}</td>
-                        <td>WO-2387/I</td>
+                        {/* <td>{row.workOrder}</td> */}
+                        {/* <td>WO-2387/I</td> */}
                         <td>{row.part}</td>
                       </tr>
                     ))}

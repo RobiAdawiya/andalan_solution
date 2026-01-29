@@ -197,7 +197,9 @@ class BarcodeSystem:
             return True, "Login berhasil"
 
         # INGIN LOGOUT
-        if last_login["status"] == "login":
+        if not last_login or last_login["status"] == "login":
+            if machine_status == 0:
+                return False, "Gagal Logout: WISE4050:PB_EMG (0). Harap nyalakan WISE4050:PB_EMG dulu."
             if str(last_login["nik"]) != str(nik):
                 return False, f"Gagal: {last_login['name']} sedang login"
 
@@ -235,7 +237,7 @@ class BarcodeSystem:
         if not machine or not product:
             return False, "Data product tidak lengkap"
 
-        row = fetch_one("SELECT name_product FROM product WHERE machine_name=%s", (machine,))
+        row = fetch_one("SELECT name_product FROM product WHERE machine_name=%s AND name_product=%s", (machine, product))
         if not row or row["name_product"].lower() != product.lower():
             return False, "Produk tidak sesuai mesin"
 
