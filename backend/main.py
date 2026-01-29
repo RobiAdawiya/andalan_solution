@@ -374,6 +374,8 @@ class BarcodeSystem:
 
         client.loop_forever()
 
+system = BarcodeSystem()
+
 # ==============================
 # MAIN PROGRAM
 # ==============================

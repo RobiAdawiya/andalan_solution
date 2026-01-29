@@ -6,7 +6,7 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime
 
 # Import logic dari main.py
-from backend.main import handle_manpower, handle_product
+from backend.main import system
 
 app = FastAPI(
     title="API Monitoring Produksi & Manpower",
@@ -453,11 +453,11 @@ async def put_editproduct(data: EditProduct):
 @app.get("/validate/manpower")
 def api_validate_manpower(nik: str, name: str):
     payload = {"nik": nik, "name": name}
-    success, message = handle_manpower(payload)
+    success, message = system.handle_manpower(payload)
     return {"success": success, "message": message, "data": payload}
 
 @app.get("/validate/product")
 def api_validate_product(machine_name: str, name_product: str):
     payload = {"machine_name": machine_name, "name_product": name_product}
-    success, message = handle_product(payload)
+    success, message = system.handle_product(payload)
     return {"success": success, "message": message}
