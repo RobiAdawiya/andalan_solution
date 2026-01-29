@@ -6,12 +6,13 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime
 
 # Import logic dari main.py
-# from backend.main import handle_manpower, handle_product
+from backend.main import handle_manpower, handle_product
 
 app = FastAPI(
     title="API Monitoring Produksi & Manpower",
     version="1.1.0"
 )
+
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
