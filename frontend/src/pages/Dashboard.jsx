@@ -16,6 +16,9 @@ export default function Dashboard() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [startDate, setStartDate] = useState("2025-08-05");
   const [endDate, setEndDate] = useState("2026-01-29");
+  const [comparisonStartDate, setComparisonStartDate] = useState("2025-08-05");
+  const [comparisonEndDate, setComparisonEndDate] = useState("2026-01-29");
+  const [showComparisonFilter, setShowComparisonFilter] = useState(false);
   const [latestData, setLatestData] = useState({});
   const [counts, setCounts] = useState({ manpower: 0, parts: 0 });
   const [activePart, setActivePart] = useState("Scanning...");
@@ -26,6 +29,14 @@ export default function Dashboard() {
   });
   const [dynamicChartTimeline, setDynamicChartTimeline] = useState([]);
   
+  const [comparisonStatusSummary, setComparisonStatusSummary] = useState({
+    running: "00:00:00",
+    standby: "00:00:00",
+    total: "00:00:00"
+  });
+  const [comparisonChartTimeline, setComparisonChartTimeline] = useState([]);
+  const [comparisonTimelineLabels, setComparisonTimelineLabels] = useState(["08:00", "12:00", "16:00", "20:00"]);
+
   // NEW: State for dynamic labels
   const [timelineLabels, setTimelineLabels] = useState(["08:00", "12:00", "16:00", "20:00"]);
 
@@ -35,6 +46,74 @@ export default function Dashboard() {
     const m = Math.floor((seconds % 3600) / 60);
     const s = Math.floor(seconds % 60);
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const fetchComparisonTimeline = async () => {
+    try {
+      const startFilter = new Date(comparisonStartDate);
+      const endFilter = new Date(comparisonEndDate);
+      endFilter.setHours(23, 59, 59, 999);
+
+      const machineLogs = await getMachineLogs();
+
+      const statusLogs = machineLogs
+        .filter(log => log.tag_name === "Machine_Status")
+        .filter(log => {
+          const logDate = new Date(log.created_at);
+          return logDate >= startFilter && logDate <= endFilter;
+        })
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+      let runningTime = 0;
+      let standbyTime = 0;
+      const segments = [];
+
+      for (let i = 0; i < statusLogs.length - 1; i++) {
+        const current = statusLogs[i];
+        const next = statusLogs[i + 1];
+        const duration = (new Date(next.created_at) - new Date(current.created_at)) / 1000;
+
+        const start = new Date(current.created_at).toTimeString().slice(0, 5);
+        const end = new Date(next.created_at).toTimeString().slice(0, 5);
+        let status, color;
+
+        if (parseFloat(current.tag_value) === 1.0) {
+          status = "RUNNING";
+          color = "#00BCD4";
+          runningTime += duration;
+        } else {
+          status = "STOP";
+          color = "#FF5252";
+          standbyTime += duration;
+        }
+
+        segments.push({ start, end, status, color });
+      }
+
+      if (statusLogs.length >= 2) {
+        const firstTime = new Date(statusLogs[0].created_at);
+        const lastTime = new Date(statusLogs[statusLogs.length - 1].created_at);
+        const labelCount = 4;
+        const newLabels = [];
+        const intervalMs = (lastTime - firstTime) / (labelCount - 1);
+
+        for (let i = 0; i < labelCount; i++) {
+          const labelTime = new Date(firstTime.getTime() + (intervalMs * i));
+          newLabels.push(labelTime.toTimeString().slice(0, 5));
+        }
+        setComparisonTimelineLabels(newLabels);
+      }
+
+      const totalTime = runningTime + standbyTime;
+      setComparisonStatusSummary({
+        running: formatTime(runningTime),
+        standby: formatTime(standbyTime),
+        total: formatTime(totalTime)
+      });
+      setComparisonChartTimeline(segments);
+    } catch (error) {
+      console.error("Comparison Timeline Error:", error);
+    }
   };
 
   // --- 1. DATA FETCHING & SYNC ---
@@ -184,6 +263,10 @@ export default function Dashboard() {
       // UI Features: Timeline & History (Now Dynamic)
       statusSummary: dynamicStatusSummary,
       chartTimeline: dynamicChartTimeline,
+
+      comparisonStatusSummary: comparisonStatusSummary,
+      comparisonChartTimeline: comparisonChartTimeline,
+
       historyTable: [
         { 
             no: 1, 
@@ -257,6 +340,112 @@ export default function Dashboard() {
           ))
         )}
       </div>
+
+      {!loading && (
+        <div className="timeline-comparison-section">
+          <div className="comparison-header">
+            <div className="comparison-title">
+              <Activity size={20} />
+              <h2>Operation Timeline Comparison</h2>
+            </div>
+            <div className="comparison-controls">
+              <button 
+                className="btn-filter-toggle"
+                onClick={() => setShowComparisonFilter(!showComparisonFilter)}
+              >
+                <Calendar size={16} />
+                {showComparisonFilter ? 'Hide Filter' : 'Show Filter'}
+              </button>
+              <div className="comparison-date-display">
+                <Calendar size={14} />
+                <span>{comparisonStartDate} to {comparisonEndDate}</span>
+              </div>
+            </div>
+          </div>
+
+          {showComparisonFilter && (
+            <div className="comparison-filter-bar">
+              <div className="filter-group">
+                <label>Start Date</label>
+                <input 
+                  type="date" 
+                  value={comparisonStartDate} 
+                  onChange={(e) => setComparisonStartDate(e.target.value)}
+                />
+              </div>
+              <div className="filter-group">
+                <label>End Date</label>
+                <input 
+                  type="date" 
+                  value={comparisonEndDate} 
+                  onChange={(e) => setComparisonEndDate(e.target.value)}
+                />
+              </div>
+              <button 
+                className="btn-apply-filter"
+                onClick={fetchComparisonTimeline}
+              >
+                Apply Filter
+              </button>
+            </div>
+          )}
+
+          <div className="comparison-container">
+            {devices.map((device) => (
+              <div key={device.id} className="comparison-row">
+                <div className="comparison-device-info">
+                  <h3>{device.name}</h3>
+                  <span className={`comparison-status ${device.deviceStatus === "RUNNING" ? "status-running" : "status-stop"}`}>
+                    {device.deviceStatus}
+                  </span>
+                </div>
+
+                <div className="comparison-timeline-content">
+                  <div className="comparison-stats">
+                    <div className="stat-item running">
+                      <span className="stat-label">● RUN</span>
+                      <span className="stat-value">{device.comparisonStatusSummary.running}</span>
+                    </div>
+                    <div className="stat-item standby">
+                      <span className="stat-label">● STOP</span>
+                      <span className="stat-value">{device.comparisonStatusSummary.standby}</span>
+                    </div>
+                    <div className="stat-item total">
+                      <span className="stat-label">● TOTAL</span>
+                      <span className="stat-value">{device.comparisonStatusSummary.total}</span>
+                    </div>
+                  </div>
+
+                  <div className="comparison-timeline-bar">
+                    {device.comparisonChartTimeline.length > 0 ? (
+                      device.comparisonChartTimeline.map((segment, idx) => (
+                        <div
+                          key={idx}
+                          className="comparison-segment"
+                          style={{
+                            backgroundColor: segment.color,
+                            flex: 1,
+                            minWidth: '2px'
+                          }}
+                          title={`${segment.status}: ${segment.start} - ${segment.end}`}
+                        />
+                      ))
+                    ) : (
+                      <div className="no-data-message">No timeline data available</div>
+                    )}
+                  </div>
+
+                  <div className="comparison-timeline-labels">
+                    {comparisonTimelineLabels.map((time, idx) => (
+                      <span key={idx} className="time-label">{time}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {showDetailModal && selectedDevice && (
         <>
