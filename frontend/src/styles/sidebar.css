@@ -12,10 +12,10 @@
 
 .sidebar {
   position: fixed;
-  top: 70px;
+  top: 60px;
   left: 0;
   width: 250px;
-  height: calc(100vh - 70px);
+  height: calc(100vh - 60px);
   background-color: #0b4a8b;
   color: white;
   z-index: 999;

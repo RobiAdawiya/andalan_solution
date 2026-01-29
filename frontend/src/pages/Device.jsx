@@ -1,25 +1,16 @@
 import { useState, useEffect } from "react";
-import { Edit, Trash2, X } from "lucide-react"; // Removed QrCode icon
-// Removed QRCode and jsPDF imports
-import searchIcon from "../assets/search.png";
+import { Edit, Trash2, X, Search } from "lucide-react";
 import "../styles/device.css";
-// Import fungsi API (Pastikan getProductList tersedia di services/api)
+// Import API functions
 import { getProductList } from "../services/api";
 
 export default function Device() {
-  // --- MAIN STATE ---
+  // --- STATE MANAGEMENT ---
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [devices, setDevices] = useState([]);
-
-  // --- MODAL STATES ---
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  // Removed showQrModal state
-
-  // Removed QR & PDF STATES (qrDataUrl, qrPayload, qrGenerating)
-
-  // --- FORM STATES ---
   const [editingDevice, setEditingDevice] = useState(null);
 
   const [addForm, setAddForm] = useState({
@@ -32,20 +23,13 @@ export default function Device() {
     name_product: ""
   });
 
-  // --- 1. FETCH DATA DARI DATABASE ---
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
+  // --- 1. FETCH DATA FROM API ---
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      // Assuming getProductList returns an array of objects with machine_name and name_product
       const data = await getProductList();
-
       const mappedData = data.map((item, index) => ({
         no: index + 1,
-        // Adjust these keys based on exactly what your API returns if different
         machine_name: item.machine_name || item.machine_id || "N/A",
         name_product: item.name_product || item.tag_name || "N/A",
       }));
@@ -58,13 +42,17 @@ export default function Device() {
     }
   };
 
-  // --- 2. FITUR FILTER/SEARCH ---
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  // --- 2. FILTER SEARCH ---
   const filteredDevices = devices.filter(device =>
     device.machine_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     device.name_product?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // --- 3. FITUR ADD DEVICE (Simplified Local State for now) ---
+  // --- 3. ADD DEVICE HANDLERS ---
   const handleAddDevice = () => {
     setAddForm({ machine_name: "", name_product: "" });
     setShowAddModal(true);
@@ -75,16 +63,25 @@ export default function Device() {
       alert("Please fill in all required fields");
       return;
     }
-    // Note: This is currently local add. Connect to API if needed later.
+
+    const exists = devices.some(d => d.machine_name === addForm.machine_name);
+    if (exists) {
+      alert("Machine Name already exists!");
+      return;
+    }
+
     const newNo = devices.length > 0 ? Math.max(...devices.map(d => d.no)) + 1 : 1;
-    const newDevice = { ...addForm, no: newNo };
+    const newDevice = {
+      no: newNo,
+      ...addForm
+    };
 
     setDevices(prev => [newDevice, ...prev]);
     setShowAddModal(false);
-    alert("Device added locally!");
+    alert("Device added successfully!");
   };
 
-  // --- 4. FITUR EDIT DEVICE (API BACKEND INTEGRATION) ---
+  // --- 4. EDIT DEVICE HANDLERS (API INTEGRATION) ---
   const handleEdit = (device) => {
     setEditingDevice(device);
     setEditForm({
@@ -94,81 +91,76 @@ export default function Device() {
     setShowEditModal(true);
   };
 
-  // Using the API approach from your Parts example
   const handleSaveEdit = async () => {
     try {
       const payload = {
-        machine_name: editForm.machine_name, // Usually used as the identifier
-        name_product: editForm.name_product  // The value to update
+        machine_name: editForm.machine_name,
+        name_product: editForm.name_product
       };
 
-      // Assuming this endpoint exists as per your Parts example
       const response = await fetch("http://localhost:8000/editproduct", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        alert("Gagal edit product: " + (result.detail || "Server error"));
+        const result = await response.json();
+        alert("Gagal edit: " + (result.detail || "Server error"));
         return;
       }
 
-      // 🔥 REFRESH DATA FROM DB ON SUCCESS
-      await fetchProducts();
-
+      await fetchProducts(); // Refresh data dari DB
       setShowEditModal(false);
-      alert("Product updated successfully in database!");
-
+      alert("Product updated in database!");
     } catch (error) {
       console.error("Edit Error:", error);
       alert("Connection to server failed!");
     }
   };
 
-  // --- 5. FITUR DELETE (Kept Local as per original code) ---
+  // --- 5. DELETE HANDLER ---
   const handleDelete = (device) => {
-    if (window.confirm(`Are you sure you want to delete ${device.name_product} on ${device.machine_name}? (Local delete only)`)) {
-      setDevices(prevData => prevData.filter(d => d.no !== device.no));
+    if (window.confirm(`Are you sure you want to delete ${device.name_product}?`)) {
+      setDevices(prev => prev.filter(d => d.no !== device.no));
+      alert("Device deleted successfully!");
     }
   };
 
-  // Removed QR Code & PDF Logic functions
-
-  // --- RENDER UI ---
   return (
     <div>
-      <div className="device-top">
-        <div className="search-wrapper">
-          <img src={searchIcon} alt="Search" className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search Machine Name or Product Name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
-        </div>
+      <div className="page-header">
+        <h1 className="page-title">DEVICE</h1>
 
-        <button className="add-device-btn" onClick={handleAddDevice}>
-          Add Device
-        </button>
+        <div className="device-top">
+          <div className="search-wrapper">
+            <Search className="search-icon" size={20} />
+            <input
+              type="text"
+              placeholder="Search Machine or Product..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+          </div>
+
+          <button className="add-device-btn" onClick={handleAddDevice}>
+            Add Device
+          </button>
+        </div>
       </div>
 
       <div className="table-container">
-        {loading ? <p style={{ textAlign: "center", padding: "2rem" }}>Loading Data...</p> : (
+        {loading ? (
+          <p style={{ textAlign: "center", padding: "2rem" }}>Syncing with Database...</p>
+        ) : (
           <table className="device-table">
             <thead>
               <tr>
                 <th>No.</th>
                 <th>Machine Name</th>
-                <th>Name Product</th>
-                {/* Reduced min-width since there are fewer buttons */}
-                <th className="text-center" style={{minWidth: "180px"}}>Action</th>
+                <th>Product Name</th>
+                <th className="text-center">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -177,10 +169,8 @@ export default function Device() {
                   <td>{device.no}</td>
                   <td>{device.machine_name}</td>
                   <td>{device.name_product}</td>
-                  
                   <td className="text-center">
-                    <div className="action-buttons" style={{justifyContent: "center"}}>
-                      {/* Removed QR Button */}
+                    <div className="action-buttons">
                       <button className="action-btn btn-edit" onClick={() => handleEdit(device)} title="Edit">
                         <Edit size={16} /> Edit
                       </button>
@@ -208,11 +198,23 @@ export default function Device() {
             <div className="modal-body">
               <div className="form-group">
                 <label>Machine Name *</label>
-                <input type="text" value={addForm.machine_name} onChange={(e) => setAddForm({ ...addForm, machine_name: e.target.value })} className="form-input" placeholder="Enter machine name" />
+                <input 
+                  type="text" 
+                  value={addForm.machine_name} 
+                  onChange={(e) => setAddForm({ ...addForm, machine_name: e.target.value })} 
+                  className="form-input" 
+                  placeholder="Enter machine name" 
+                />
               </div>
               <div className="form-group">
-                <label>Name Product *</label>
-                <input type="text" value={addForm.name_product} onChange={(e) => setAddForm({ ...addForm, name_product: e.target.value })} className="form-input" placeholder="Enter product name" />
+                <label>Product Name *</label>
+                <input 
+                  type="text" 
+                  value={addForm.name_product} 
+                  onChange={(e) => setAddForm({ ...addForm, name_product: e.target.value })} 
+                  className="form-input" 
+                  placeholder="Enter product name" 
+                />
               </div>
             </div>
             <div className="modal-footer">
@@ -238,8 +240,13 @@ export default function Device() {
                 <input type="text" value={editForm.machine_name} disabled className="form-input disabled" />
               </div>
               <div className="form-group">
-                <label>Name Product</label>
-                <input type="text" value={editForm.name_product} onChange={(e) => setEditForm({ ...editForm, name_product: e.target.value })} className="form-input" />
+                <label>Product Name</label>
+                <input 
+                  type="text" 
+                  value={editForm.name_product} 
+                  onChange={(e) => setEditForm({ ...editForm, name_product: e.target.value })} 
+                  className="form-input" 
+                />
               </div>
             </div>
             <div className="modal-footer">
@@ -249,8 +256,6 @@ export default function Device() {
           </div>
         </>
       )}
-
-      {/* Removed QR Modal Component */}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "../styles/login.css";
+import logo2 from "../assets/logo2.png";
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(false);
@@ -15,31 +16,31 @@ export default function Login() {
     setSuccess("");
 
     if (!username || !password || !confirmPassword) {
-      setError("Semua field harus diisi");
+      setError("All fields must be filled in");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Password tidak cocok");
+      setError("Password is incorrect");
       return;
     }
 
     if (password.length < 4) {
-      setError("Password minimal 4 karakter");
+      setError("Password must be at least 4 characters");
       return;
     }
 
     const users = JSON.parse(localStorage.getItem("users") || "[]");
     
     if (users.find(u => u.username === username)) {
-      setError("Username sudah terdaftar");
+      setError("Username is already registered");
       return;
     }
 
     users.push({ username, password });
     localStorage.setItem("users", JSON.stringify(users));
     
-    setSuccess("Akun berhasil dibuat! Silakan login.");
+    setSuccess("Account successfully created! Please login.");
     setUsername("");
     setPassword("");
     setConfirmPassword("");
@@ -55,7 +56,7 @@ export default function Login() {
     setError("");
 
     if (!username || !password) {
-      setError("Username dan password harus diisi");
+      setError("Username and password must be filled in");
       return;
     }
 
@@ -72,15 +73,16 @@ export default function Login() {
       localStorage.setItem("auth", "true");
       window.location.reload();
     } else {
-      setError("Username atau password salah");
+      setError("Username or password is incorrect");
     }
   };
 
   return (
     <div className="login-container">
-      <h1 className="brand-title">ENTER THE BRAND NAME HERE</h1>
+      <img src={logo2} alt="Company Logo" className="login-logo" />
+      <h1 className="brand-title"></h1>
       <p className="subtitle">
-        {isRegister ? "Create your account" : "Sign in to start your new session"}
+        {isRegister ? "Create your account" : "Login to start your new session"}
       </p>
 
       {isRegister && (

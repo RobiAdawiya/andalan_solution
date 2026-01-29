@@ -11,7 +11,7 @@
 .search-wrapper {
   position: relative;
   flex: 1;
-  max-width: 400px;
+  max-width: 600px;
 }
 
 .search-icon {
@@ -40,6 +40,15 @@
   box-shadow: 0 0 0 3px rgba(11, 74, 139, 0.1);
 }
 
+.search-icon {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+  pointer-events: none;
+}
+
 .add-manpower-btn {
   padding: 12px 24px;
   background: #0b4a8b;
@@ -51,6 +60,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  margin-right: 25px;
 }
 
 .add-manpower-btn:hover {
@@ -114,12 +124,12 @@
   outline: none;
 }
 
-.status-login {
+.status-active {
   background: #d4edda;
   color: #155724;
 }
 
-.status-logout {
+.status-inactive {
   background: #f8d7da;
   color: #721c24;
 }

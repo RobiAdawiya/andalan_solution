@@ -51,6 +51,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  margin-right: 25px;
 }
 
 .add-parts-btn:hover {
@@ -135,22 +136,22 @@
   box-shadow: 0 2px 6px rgba(11, 74, 139, 0.3);
 }
 
-.action-btn:nth-child(2) {
-  background: #ffc107;
+.action-btn:nth-child(3) {
+  background: #f44336;
 }
 
-.action-btn:nth-child(2):hover {
-  background: #e0a800;
+.action-btn:nth-child(3):hover {
+  background: #c62828;
   transform: translateY(-2px);
   box-shadow: 0 2px 6px rgba(255, 193, 7, 0.3);
 }
 
-.action-btn:nth-child(3) {
-  background: #dc3545;
+.action-btn:nth-child(2) {
+  background: #17a2b8;
 }
 
-.action-btn:nth-child(3):hover {
-  background: #c82333;
+.action-btn:nth-child(2):hover {
+  background: #138496;
   transform: translateY(-2px);
   box-shadow: 0 2px 6px rgba(220, 53, 69, 0.3);
 }
@@ -359,6 +360,100 @@
   color: #f44336;
   font-size: 0.9rem;
   margin: 10px 0;
+}
+
+.modal-large {
+  max-width: 900px;
+  width: 90%;
+}
+
+.history-table-container {
+  max-height: 500px;
+  overflow-y: auto;
+  margin: 10px 0;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+.history-table thead {
+  background: #0b4a8b;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.history-table thead th {
+  color: white;
+  padding: 12px 15px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid #002d62;
+}
+
+.history-table tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.history-table tbody tr:hover {
+  background-color: #f5f5f5;
+}
+
+.history-table tbody td {
+  padding: 12px 15px;
+  color: #333;
+  font-size: 14px;
+  border: 1px solid #e0e0e0;
+}
+
+.history-status {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.status-start {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-stop {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.history-table-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.history-table-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.history-table-container::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+}
+
+.history-table-container::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.search-icon {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+  pointer-events: none;
 }
 
 /* ===== RESPONSIVE ===== */

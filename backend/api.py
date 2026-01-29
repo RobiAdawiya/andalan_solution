@@ -6,7 +6,7 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime
 
 # Import logic dari main.py
-from backend.main import handle_manpower, handle_product
+# from backend.main import handle_manpower, handle_product
 
 app = FastAPI(
     title="API Monitoring Produksi & Manpower",
@@ -24,7 +24,7 @@ app.add_middleware(
 
 # KONFIGURASI DATABASE
 DB_CONFIG = {
-    "host": "192.168.1.43",
+    "host": "localhost",
     "database": "database_barcode",
     "user": "postgres",
     "password": "a",
