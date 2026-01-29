@@ -211,13 +211,16 @@ export default function ManPower() {
                     <div className="action-buttons">
                       <button className="action-btn view-btn" onClick={() => handleViewQR(person)} title="QR">
                         <QrCode size={18} />
+                        <span className="sr-only">View QR</span>
                       </button>
                       {/* TOMBOL EDIT TETAP ADA */}
                       <button className="action-btn edit-btn" onClick={() => handleEditClick(person)} title="Edit">
                         <Edit size={18} />
+                        <span className="sr-only">Edit</span>
                       </button>
                       <button className="action-btn delete-btn" onClick={() => handleDelete(person.nik)} title="Delete">
                         <Trash2 size={18} />
+                        <span className="sr-only">Delete</span>
                       </button>
                     </div>
                   </td>
