@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # 1. Database PostgreSQL
   postgres-db: 
@@ -50,5 +48,40 @@ services:
     environment:
       - VITE_API_URL=http://localhost:8000
 
+#machine data
+  machine-data:
+    build: ./machine_data
+    container_name: machine_data_container
+    restart: always
+    depends_on:
+      - postgres-db
+    environment:
+      - MQTT_BROKER=192.168.1.205
+      - MQTT_PORT=1883
+      - DB_NAME=database_barcode
+      - DB_USER=postgres
+      - DB_PASS=a
+      - DB_HOST=postgres-db
+      - DB_PORT=5432
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto_broker
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      app_net:
+        ipv4_address: 192.168.1.205
+
 volumes:
   pg_data:
+
+networks:
+  app_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24
