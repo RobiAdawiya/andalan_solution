@@ -14,10 +14,34 @@ function App() {
   const [isAuth, setIsAuth] = useState(false);
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  // Updated Timestamp Logic
+  const [time, setTime] = useState("");
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     const auth = localStorage.getItem("auth") === "true";
     setIsAuth(auth);
+
+    const updateDateTime = () => {
+      const now = new Date();
+      const options = { 
+        weekday: 'short', 
+        day: '2-digit', 
+        month: 'short', 
+        year: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit',
+        hour12: false 
+      };
+      // Result: "Fri, 30 Jan 2026 15:30:05"
+      setTime(now.toLocaleString('en-GB', options).replace(',', ''));
+    };
+
+    updateDateTime();
+    const timer = setInterval(updateDateTime, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const handleLogin = () => {
@@ -37,18 +61,12 @@ function App() {
 
   const renderPage = () => {
     switch(currentPage) {
-      case "dashboard":
-        return <Dashboard />;
-      case "device":
-        return <Device />;
-      case "manpower":
-        return <ManPower />;
-      case "parts":
-        return <Parts />;
-      case "workorder":
-        return <WorkOrder />;
-      default:
-        return <Dashboard />;
+      case "dashboard": return <Dashboard />;
+      case "device": return <Device />;
+      case "manpower": return <ManPower />;
+      case "parts": return <Parts />;
+      case "workorder": return <WorkOrder />;
+      default: return <Dashboard />;
     }
   };
 
@@ -58,33 +76,47 @@ function App() {
 
   return (
     <div className="app-layout">
-      {/* ===== TOPBAR ===== */}
       <header className="topbar">
         <div className="topbar-left">
-        <button className="menu-btn" onClick={toggleSidebar}>
-          <img src={menuIcon} alt="Menu" />
-          <title>Toggle Sidebar</title>
-        </button>
-        <img src={logo2} alt="Company Logo" className="topbar-logo" />
+          <button className="menu-btn" onClick={toggleSidebar}>
+            <img src={menuIcon} alt="Menu" />
+          </button>
+          <img src={logo2} alt="Company Logo" className="topbar-logo" />
         </div>
         
         <div className="topbar-right">
-          <span>Welcome, user!</span>
+          <div className="user-profile-container">
+            <span>Welcome, 
+              <strong 
+                className="interactive-user" 
+                onClick={() => setShowUserMenu(!showUserMenu)}
+              > user!</strong>
+            </span>
+            
+            {showUserMenu && (
+              <div className="user-dropdown-message">
+                <input type="password" placeholder="New Password" />
+                <input type="password" placeholder="Confirm Password" />
+                <button className="save-btn" onClick={() => setShowUserMenu(false)}>Save</button>
+              </div>
+            )}
+          </div>
+
+          {/* This button still triggers logout */}
           <button className="logout-btn" onClick={handleLogout}>
-            Log Out
+            {time}
           </button>
         </div>
       </header>
 
-      {/* ===== SIDEBAR ===== */}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onNavigate={setCurrentPage}
         currentPage={currentPage}
+        onLogout={handleLogout} // ADD THIS PROP
       />
 
-      {/* ===== PAGE CONTENT ===== */}
       <main className="page-content">
         {renderPage()}
       </main>

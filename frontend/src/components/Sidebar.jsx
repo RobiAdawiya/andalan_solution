@@ -1,15 +1,15 @@
-import { Home, Monitor, Users, Wrench, ClipboardList, User, ChevronUp, ChevronDown } from "lucide-react";
+import { Home, Monitor, Users, Wrench, ClipboardList, LogOut, ChevronUp, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import "../styles/sidebar.css";
 
-export default function Sidebar({ isOpen, onClose, onNavigate, currentPage }) {
+export default function Sidebar({ isOpen, onClose, onNavigate, currentPage, onLogout }) {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const handleNavigation = (page) => {
-    onNavigate(page); // Panggil fungsi dari App.jsx
-    onClose(); // Tutup sidebar setelah navigasi
+    onNavigate(page);
+    onClose();
   };
 
   const handleSavePassword = () => {
@@ -30,7 +30,6 @@ export default function Sidebar({ isOpen, onClose, onNavigate, currentPage }) {
       <div className="sidebar-overlay" onClick={onClose}></div>
       <div className="sidebar">
         <div className="sidebar-content">
-          {/* Dashboard */}
           <div className="sidebar-section">
             <button 
               className={`sidebar-item ${currentPage === "dashboard" ? "active" : ""}`}
@@ -41,7 +40,6 @@ export default function Sidebar({ isOpen, onClose, onNavigate, currentPage }) {
             </button>
           </div>
 
-          {/* DATA Section */}
           <div className="sidebar-section">
             <h3 className="sidebar-label">DATA</h3>
             <button 
@@ -60,7 +58,6 @@ export default function Sidebar({ isOpen, onClose, onNavigate, currentPage }) {
             </button>
           </div>
 
-          {/* WORK Section */}
           <div className="sidebar-section">
             <h3 className="sidebar-label">WORK</h3>
             <button 
@@ -80,31 +77,31 @@ export default function Sidebar({ isOpen, onClose, onNavigate, currentPage }) {
           </div>
         </div>
 
-        {/* User Section at Bottom */}
+        {/* Updated Sidebar Footer with Log Out */}
         <div className="sidebar-footer">
+          {/* Settings / Password Toggle
           <button 
             className="sidebar-user" 
             onClick={() => setShowPasswordForm(!showPasswordForm)}
+            style={{ marginBottom: '10px' }}
           >
-            <User size={20} />
-            <span>User</span>
+            <span style={{ fontSize: '0.9rem' }}>Account Settings</span>
             {showPasswordForm ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-          </button>
+          </button> */}
 
           {showPasswordForm && (
             <div className="password-form">
               <h4 className="password-title">Change Password</h4>
               <input
                 type="password"
-                placeholder="New Password"
+                placeholder="New"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="password-input"
               />
-              <h4 className="password-title">Confirm Password</h4>
               <input
                 type="password"
-                placeholder="Confirm Password"
+                placeholder="Confirm"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="password-input"
@@ -114,6 +111,12 @@ export default function Sidebar({ isOpen, onClose, onNavigate, currentPage }) {
               </button>
             </div>
           )}
+
+          {/* NEW LOG OUT BUTTON */}
+          <button className="sidebar-item logout-sidebar-btn" onClick={onLogout}>
+            <LogOut size={20} color="#ff4d4d" />
+            <span style={{ color: '#ff4d4d', fontWeight: 'bold' }}>Log Out</span>
+          </button>
         </div>
       </div>
     </>
