@@ -6,6 +6,7 @@ from contextlib import contextmanager
 import threading
 import time
 import logging
+import os
 
 # Enable debug logging (set to logging.INFO for production)
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -14,15 +15,16 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 # CONSTANTS AND CONFIG
 # ==============================
 DB_CONFIG = {
-    "host": "localhost",
-    "dbname": "database_barcode",
-    "user": "postgres",
-    "password": "a",
-    "port": 5432
+    "dbname": os.getenv("DB_NAME", "database_barcode"),
+    "user": os.getenv("DB_USER", "postgres"),
+    "password": os.getenv("DB_PASS", "a"),
+    "host": os.getenv("DB_HOST", "postgres-db"),
+    "port": os.getenv("DB_PORT", "5432")
 }
 
-MQTT_BROKER = "192.168.1.205"
-MQTT_PORT = 1883
+MQTT_BROKER = os.getenv("MQTT_BROKER", "192.168.1.205") 
+MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
+
 TOPIC_MANPOWER = "data/manpower"
 TOPIC_PRODUCT = "data/product"
 TOPIC_MACHINE = "data/machine"
@@ -54,6 +56,19 @@ def execute_query(query, params=None):
         with conn.cursor() as cur:
             cur.execute(query, params)
             conn.commit()
+
+def wait_for_db():
+    """Fungsi untuk menahan aplikasi sampai Database benar-benar siap."""
+    logging.info("⏳ Memeriksa koneksi Database...")
+    while True:
+        try:
+            conn = psycopg2.connect(**DB_CONFIG)
+            conn.close()
+            logging.info("✅ Database Terhubung!")
+            break
+        except Exception as e:
+            logging.warning(f"Database belum siap, mencoba lagi dalam 5 detik... Error: {e}")
+            time.sleep(5)
 
 # ==============================
 # MAIN SYSTEM CLASS
@@ -323,18 +338,18 @@ class BarcodeSystem:
                     )
                     logging.info("⚠️ Command sent: Force Stop Product (Auto-Stop)")
 
-            # Feedback Dashboard
-            client.publish(
-                "data/feedback/manpower",
-                json.dumps({
-                    "nik": payload.get("nik"),
-                    "name": payload.get("name"),
-                    "success": success,
-                    "message": message
-                }),
-                qos=1
-            )
-            logging.info(f"Feedback Manpower: {message}")
+                # Feedback Dashboard (only on success)
+                client.publish(
+                    "data/feedback/manpower",
+                    json.dumps({
+                        "nik": payload.get("nik"),
+                        "name": payload.get("name"),
+                        "success": success,
+                        "message": message
+                    }),
+                    qos=1
+                )
+                logging.info(f"Feedback Manpower: {message}")
 
         # ---------- HANDLE PRODUCT ----------
         elif msg.topic == TOPIC_PRODUCT:
@@ -364,21 +379,30 @@ class BarcodeSystem:
             logging.info(f"Feedback Product: {message}")
 
     def run(self):
-        self.update_cached_states()  # Initial cache load
+        wait_for_db()
+        self.update_cached_states()
+        
         client = mqtt.Client()
         client.on_connect = self.on_connect
         client.on_message = self.on_message
-        client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        
+        logging.info("⏳ Menghubungkan ke MQTT Broker...")
+        while True:
+            try:
+                client.connect(MQTT_BROKER, MQTT_PORT, 60)
+                logging.info("✅ MQTT Terhubung!")
+                break
+            except Exception as e:
+                logging.warning(f"MQTT belum siap, mencoba lagi dalam 5 detik... Error: {e}")
+                time.sleep(5)
 
         threading.Thread(target=self.emg_loop, daemon=True).start()
 
         client.loop_forever()
 
 system = BarcodeSystem()
-
 # ==============================
 # MAIN PROGRAM
 # ==============================
 if __name__ == "__main__":
-    system = BarcodeSystem()
     system.run()

@@ -1,20 +1,54 @@
-# andalan/docker-compose.yml
+version: '3.8'
+
 services:
+  # 1. Database PostgreSQL
+  postgres-db: 
+    image: postgres:15-alpine
+    container_name: postgres_container
+    restart: always
+    environment:
+      POSTGRES_DB: database_barcode  
+      POSTGRES_USER: postgres        
+      POSTGRES_PASSWORD: a           
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # 2. Backend (Python + FastAPI)
   backend-app:
     build: ./backend
+    container_name: backend_container
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
+    depends_on:
+      - postgres-db
     environment:
       - ENV=development
+      - DB_HOST=postgres-db
+      - DB_NAME=database_barcode
+      - DB_USER=postgres
+      - DB_PASS=a
+      - DB_PORT=5432
 
+  # 3. Frontend (React + Vite)
   frontend-app:
     build: ./frontend
+    container_name: frontend_container
+    restart: unless-stopped
     ports:
-      - "5173:5173"
+      - "3001:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     depends_on:
       - backend-app
+    environment:
+      - VITE_API_URL=http://localhost:8000
+
+volumes:
+  pg_data:

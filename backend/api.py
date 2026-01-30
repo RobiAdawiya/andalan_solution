@@ -6,7 +6,7 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime
 
 # Import logic dari main.py
-from backend.main import system
+from main import system
 
 app = FastAPI(
     title="API Monitoring Produksi & Manpower",
@@ -24,7 +24,7 @@ app.add_middleware(
 
 # KONFIGURASI DATABASE
 DB_CONFIG = {
-    "host": "localhost",
+    "host": "postgres-db",
     "database": "database_barcode",
     "user": "postgres",
     "password": "a",
@@ -293,6 +293,13 @@ async def post_addproduct(data: addproduct):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
+        cur.execute(
+            "SELECT 1 FROM product WHERE machine_name=%s AND name_product=%s",
+            (data.machine_name, data.name_product)
+        )
+        if cur.fetchone():
+            return {"status": "error", "message": "Product already exists"}
+
         # 1. Insert ke table product
         cur.execute(
             """
@@ -396,8 +403,8 @@ async def put_editproduct(data: EditProduct):
     try:
         # 1. Cek product
         cur.execute(
-            "SELECT machine_name FROM product WHERE machine_name = %s",
-            (data.machine_name,)
+            "SELECT machine_name FROM product WHERE machine_name = %s AND name_product = %s",
+            (data.machine_name, data.name_product)
         )
         if not cur.fetchone():
             raise HTTPException(

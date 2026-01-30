@@ -6,16 +6,17 @@ from datetime import datetime
 import threading
 import queue
 import time
+import os
 
 # --- Configuration ---
 MQTT_BROKER = "192.168.1.205"
 MQTT_TOPIC = "machine_01/data"
 DB_CONFIG = {
-    "dbname": "database_barcode",
-    "user": "postgres",
-    "password": "a",
-    "host": "localhost",
-    "port": "5432"
+    "dbname": os.getenv("DB_NAME", "database_barcode"),
+    "user": os.getenv("DB_USER", "postgres"),
+    "password": os.getenv("DB_PASS", "a"),
+    "host": os.getenv("DB_HOST", "postgres-db"),
+    "port": os.getenv("DB_PORT", "5432")
 }
 
 # --- Global Database Connection ---

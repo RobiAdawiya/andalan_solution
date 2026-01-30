@@ -58,27 +58,54 @@ export default function Device() {
     setShowAddModal(true);
   };
 
-  const handleSaveAdd = () => {
+  const handleSaveAdd = async () => {
     if (!addForm.machine_name || !addForm.name_product) {
       alert("Please fill in all required fields");
       return;
     }
 
-    const exists = devices.some(d => d.machine_name === addForm.machine_name);
+    const exists = devices.some(d =>
+      d.machine_name === addForm.machine_name &&
+      d.name_product === addForm.name_product
+    );
     if (exists) {
-      alert("Machine Name already exists!");
+      alert("This machine already has the same product!");
       return;
     }
 
-    const newNo = devices.length > 0 ? Math.max(...devices.map(d => d.no)) + 1 : 1;
-    const newDevice = {
-      no: newNo,
-      ...addForm
-    };
+    try {
+      const res = await fetch("http://localhost:8000/addproduct", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          machine_name: addForm.machine_name,
+          name_product: addForm.name_product,
+          start_date: new Date().toISOString()
+        })
+      });
 
-    setDevices(prev => [newDevice, ...prev]);
-    setShowAddModal(false);
-    alert("Device added successfully!");
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.detail || "Failed to add product");
+        return;
+      }
+
+      const newNo = devices.length > 0
+        ? Math.max(...devices.map(d => d.no)) + 1
+        : 1;
+
+      const newDevice = { no: newNo, ...addForm };
+
+      setDevices(prev => [newDevice, ...prev]);
+      setShowAddModal(false);
+      alert("Device saved to database!");
+    } catch (err) {
+      console.error(err);
+      alert("Backend not reachable");
+    }
   };
 
   // --- 4. EDIT DEVICE HANDLERS (API INTEGRATION) ---
