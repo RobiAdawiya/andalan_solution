@@ -24,7 +24,7 @@ app.add_middleware(
 
 # KONFIGURASI DATABASE
 DB_CONFIG = {
-    "host": "postgres-db",
+    "host": "localhost",
     "database": "database_barcode",
     "user": "postgres",
     "password": "a",
