@@ -344,10 +344,6 @@ export default function Dashboard() {
       {!loading && (
         <div className="timeline-comparison-section">
           <div className="comparison-header">
-            <div className="comparison-title">
-              <Activity size={20} />
-              <h2>Operation Timeline Comparison</h2>
-            </div>
             <div className="comparison-controls">
               <button 
                 className="btn-filter-toggle"
