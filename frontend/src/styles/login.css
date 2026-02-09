@@ -1,0 +1,180 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+.login-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', Arial, sans-serif;
+}
+
+.brand-title {
+  font-size: 32px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  color: #1a5fb4;
+  margin-bottom: 30px;
+}
+
+/* Toggle */
+.toggle-wrapper {
+  display: flex;
+  border: 2px solid #0b4a8b;
+  border-radius: 30px;
+  overflow: hidden;
+  margin-bottom: 25px;
+}
+
+.toggle-wrapper button {
+  padding: 10px 28px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 600;
+  color: #0b4a8b;
+  transition: all 0.3s ease; /* Tambahkan transisi smooth */
+}
+
+.toggle-wrapper .active {
+  background: #0b4a8b;
+  color: white;
+}
+
+/* Form */
+.form {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+.form label {
+  margin-top: 12px;
+  margin-bottom: 6px;
+  font-weight: 500; /* Tambahkan font weight */
+}
+
+.form input {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  outline: none; /* Hilangkan outline default */
+  transition: border-color 0.3s ease; /* Tambahkan transisi */
+}
+
+.form input:focus {
+  border-color: #0b4a8b; /* Tambahkan efek focus */
+}
+
+.login-btn {
+  margin-top: 20px;
+  padding: 12px;
+  background: #0b4a8b;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600; /* Tambahkan font weight */
+  transition: background 0.3s ease; /* Tambahkan transisi */
+}
+
+.login-btn:hover {
+  background: #093a6d; /* Tambahkan efek hover */
+}
+
+.signin-btn {
+  margin-top: 12px;
+  padding: 12px;
+  background: transparent;
+  color: #0b4a8b;
+  border: 2px solid #0b4a8b;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.signin-btn:hover {
+  background: #0b4a8b;
+  color: white;
+}
+
+/* QR Section */
+.qr-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.upload-box {
+  padding: 12px 30px;
+  border: 2px solid #0b4a8b;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #0b4a8b;
+  font-weight: 600;
+  transition: all 0.3s ease; /* Tambahkan transisi */
+}
+
+.upload-box:hover {
+  background: #f0f7ff; /* Tambahkan efek hover */
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  margin: 20px 0;
+}
+
+.divider span {
+  width: 50px;
+  height: 1px;
+  background: #aaa;
+}
+
+.divider p {
+  margin: 0 10px;
+  color: #777;
+}
+
+.scan-btn {
+  padding: 10px 36px;
+  border: 2px solid #0b4a8b;
+  background: white;
+  color: #0b4a8b;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease; /* Tambahkan transisi */
+}
+
+.scan-btn:hover {
+  background: #0b4a8b;
+  color: white;
+}
+
+.error-text { /* Ganti dari .error-message agar konsisten */
+  color: #d32f2f;
+  font-size: 14px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.success-text {
+  color: #4caf50;
+  font-size: 14px;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.login-logo {
+  position: left;
+  top: 10px;
+  width: 400px;
+  height: auto;
+  object-fit: contain;
+  z-index: 10;
+}

@@ -1,0 +1,481 @@
+import { useState, useEffect } from "react";
+import { QrCode, Edit, Trash2, X, Search, History, ChevronLeft, ChevronRight } from "lucide-react"; // TAMBAHKAN ChevronLeft, ChevronRight
+import QRCode from "qrcode";
+import jsPDF from "jspdf";
+import "../styles/manpower.css";
+import { getManpowerList, getManpowerLogs } from "../services/api";
+
+export default function ManPower() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [manPowerData, setManPowerData] = useState([]);
+  const [allLogs, setAllLogs] = useState([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState({ name: "", logs: [] });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+
+  const [editingPerson, setEditingPerson] = useState(null);
+  const [addForm, setAddForm] = useState({
+    name: "",
+    nik: "",
+    department: "Engineering",
+    position: ""
+  });
+
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [qrPayload, setQrPayload] = useState(null);
+  const [qrGenerating, setQrGenerating] = useState(false);
+
+  // --- 1. FETCH DATA ---
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [master, logs] = await Promise.all([
+        getManpowerList(),
+        getManpowerLogs()
+      ]);
+
+      setAllLogs(logs);
+
+      const merged = master.map((p, i) => {
+        const lastLog = logs.find(l => String(l.nik) === String(p.nik));
+        return {
+          id: i + 1,
+          no: i + 1,
+          name: p.name || "N/A",
+          nik: p.nik,
+          department: p.department || "Engineering",
+          position: p.position || "Staff",
+          status: lastLog ? lastLog.status : "logout"
+        };
+      });
+      setManPowerData(merged);
+    } catch (err) {
+      console.error("Load Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // --- 2. SEARCH & PAGINATION ---
+  const filteredManPower = manPowerData.filter(p =>
+    p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    String(p.nik).includes(searchQuery) ||
+    p.position?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredManPower.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const currentData = filteredManPower.slice(startIndex, endIndex);
+
+  const handleRowsPerPageChange = (value) => {
+    setRowsPerPage(Number(value));
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  // --- 3. HISTORY LOGIC ---
+  const handleViewHistory = (person) => {
+    const history = allLogs.filter(l => String(l.nik) === String(person.nik));
+    setSelectedHistory({
+      name: person.name,
+      logs: history
+    });
+    setShowHistoryModal(true);
+  };
+
+  // --- 4. CRUD HANDLERS ---
+  const handleAddManPower = () => { // TAMBAHKAN FUNGSI INI
+    setAddForm({ name: "", nik: "", department: "Engineering", position: "" });
+    setShowAddModal(true);
+  };
+
+  const handleEdit = (mp) => { // GANTI handleEditClick
+    setEditingPerson({ ...mp });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingPerson.name || !editingPerson.position) {
+      alert("Please fill in all fields!");
+      return;
+    }
+    try {
+      // const response = await fetch("https://andalan-fluids-1.wahyutech.my.id:8443/editmanpower", {
+      const response = await fetch("/api/editmanpower", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editingPerson.name,
+          nik: editingPerson.nik,
+          department: editingPerson.department,
+          position: editingPerson.position
+        })
+      });
+      if (response.ok) {
+        await loadData();
+        setShowEditModal(false);
+        alert("Man Power successfully updated!");
+      }
+    } catch (err) { alert("Server connection failed."); }
+  };
+
+  const handleSaveAdd = async () => {
+    try {
+      const response = await fetch("/api/add_manpower", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(addForm)
+      });
+      if (response.ok) {
+        await loadData();
+        setShowAddModal(false);
+        setAddForm({ name: "", nik: "", department: "Engineering", position: "" });
+        alert("Man Power successfully added!");
+      }
+    } catch (err) { alert("Server Error"); }
+  };
+
+  const handleDelete = async (mp) => { // PERBAIKI PARAMETER
+    if (window.confirm(`Delete ${mp.name}?`)) {
+      try {
+      const response = await fetch("/api/delete_manpower", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nik: mp.nik })
+        });
+        if (response.ok) {
+          setManPowerData(prev => prev.filter(p => p.nik !== mp.nik));
+          alert("Deleted!");
+        }
+      } catch (err) { alert("Delete failed"); }
+    }
+  };
+
+  // --- 5. QR & PDF LOGIC ---
+  const handleViewQR = async (person) => {
+    setQrGenerating(true);
+    setShowQrModal(true);
+    const payload = { nik: String(person.nik), name: String(person.name) };
+    setQrPayload(payload);
+    const url = await QRCode.toDataURL(JSON.stringify(payload), { width: 300 });
+    setQrDataUrl(url);
+    setQrGenerating(false);
+  };
+
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    doc.text("MANPOWER QR CODE", 105, 20, { align: "center" });
+    doc.addImage(qrDataUrl, "PNG", 55, 40, 100, 100);
+    doc.text(`Nama: ${qrPayload.name}`, 20, 160);
+    doc.text(`NIK : ${qrPayload.nik}`, 20, 170);
+    doc.save(`QR_${qrPayload.nik}.pdf`);
+  };
+
+  if (loading) {
+    return <div className="loading">Loading...</div>;
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1 className="page-title">MAN POWER</h1>
+
+        <div className="manpower-top">
+          <div className="search-wrapper">
+            <Search className="search-icon" size={20} />
+            <input
+              type="text"
+              placeholder="Search Man Power"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="search-input"
+            />
+          </div>
+
+          <button className="add-manpower-btn" onClick={handleAddManPower}>
+            Add Man Power
+          </button>
+        </div>
+      </div>
+
+      <div className="table-controls">
+        <div className="rows-per-page">
+          <label>Show</label>
+          <select 
+            value={rowsPerPage} 
+            onChange={(e) => handleRowsPerPageChange(e.target.value)}
+            className="rows-select"
+          >
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+          </select>
+          <span>entries</span>
+        </div>
+        <div className="showing-info">
+          Showing {startIndex + 1} to {Math.min(endIndex, filteredManPower.length)} of {filteredManPower.length} entries
+        </div>
+      </div>
+
+      <div className="table-container">
+        <table className="manpower-table">
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Name</th>
+              <th>NIK</th>
+              <th>Department</th>
+              <th>Position</th>
+              <th>Status</th>
+              <th className="text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentData.length === 0 ? (
+              <tr><td colSpan="7" style={{textAlign: 'center'}}>No data available</td></tr>
+            ) : (
+              currentData.map((mp) => (
+                <tr key={mp.no}>
+                  <td>{mp.no}</td>
+                  <td>{mp.name}</td>
+                  <td>{mp.nik}</td>
+                  <td>{mp.department}</td>
+                  <td>{mp.position}</td>
+                  <td>
+                    <span className={`status-badge status-${mp.status}`}>
+                      {mp.status}
+                    </span>
+                  </td>
+                  <td className="text-center">
+                    <div className="action-buttons">
+                      <button 
+                        className="action-btn btn-qr"
+                        onClick={() => handleViewQR(mp)}
+                        title="View QR"
+                      >
+                        <QrCode size={16} />
+                        QR
+                      </button>
+                      <button 
+                        className="action-btn btn-history"
+                        onClick={() => handleViewHistory(mp)}
+                        title="History"
+                      >
+                        <History size={16} />
+                        History
+                      </button>
+                      <button 
+                        className="action-btn btn-edit"
+                        onClick={() => handleEdit(mp)}
+                        title="Edit"
+                      >
+                        <Edit size={16} />
+                        Edit
+                      </button>
+                      <button 
+                        className="action-btn btn-delete"
+                        onClick={() => handleDelete(mp)}
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="pagination">
+        <button 
+          className="pagination-btn"
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+        >
+          <ChevronLeft size={20} />
+          Previous
+        </button>
+
+        <div className="pagination-numbers">
+          {[...Array(totalPages)].map((_, index) => (
+            <button
+              key={index + 1}
+              className={`pagination-number ${currentPage === index + 1 ? 'active' : ''}`}
+              onClick={() => handlePageChange(index + 1)}
+            >
+              {index + 1}
+            </button>
+          ))}
+        </div>
+
+        <button 
+          className="pagination-btn"
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        >
+          Next
+          <ChevronRight size={20} />
+        </button>
+      </div>
+
+      {/* MODAL HISTORY */}
+      {showHistoryModal && (
+        <>
+          <div className="modal-overlay" onClick={() => setShowHistoryModal(false)}></div>
+          <div className="modal modal-large">
+            <div className="modal-header">
+              <h2>History: {selectedHistory.name}</h2>
+              <button className="modal-close" onClick={() => setShowHistoryModal(false)}><X size={24} /></button>
+            </div>
+            <div className="modal-body">
+              <table className="history-table">
+                <thead>
+                  <tr>
+                    <th>No.</th>
+                    <th>Timestamp</th>
+                    <th>Status</th>
+                    {/* <th>Machine</th>
+                    <th>Product</th> */}
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedHistory.logs.map((log, i) => (
+                    <tr key={i}>
+                      <td>{i + 1}</td>
+                      <td>{new Date(log.created_at).toLocaleString()}</td>
+                      <td><span className={`status-badge status-${log.status}`}>{log.status}</span></td>
+                      {/* <td>{log.machine_name || "-"}</td>
+                      <td>{log.name_product || "-"}</td> */}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* MODAL EDIT */}
+      {showEditModal && editingPerson && (
+        <>
+          <div className="modal-overlay" onClick={() => setShowEditModal(false)}></div>
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Edit Data Manpower</h2>
+              <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={24} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Nama Lengkap</label>
+                <input 
+                  type="text" 
+                  value={editingPerson.name} 
+                  onChange={(e) => setEditingPerson({...editingPerson, name: e.target.value})} 
+                  className="form-input" 
+                />
+              </div>
+              <div className="form-group">
+                <label>NIK (Read Only)</label>
+                <input type="text" value={editingPerson.nik} disabled className="form-input disabled" />
+              </div>
+              <div className="form-group">
+                <label>Department</label>
+                <select 
+                  value={editingPerson.department} 
+                  onChange={(e) => setEditingPerson({...editingPerson, department: e.target.value})} 
+                  className="form-input"
+                >
+                  <option value="Engineering">Engineering</option>
+                  <option value="Maintenance">Maintenance</option>
+                  <option value="Operations">Operations</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Position</label>
+                <input 
+                  type="text" 
+                  value={editingPerson.position} 
+                  onChange={(e) => setEditingPerson({...editingPerson, position: e.target.value})} 
+                  className="form-input" 
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={() => setShowEditModal(false)}>Batal</button>
+              <button className="btn-save" onClick={handleSaveEdit}>Simpan Perubahan</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* MODAL ADD */}
+      {showAddModal && (
+        <>
+          <div className="modal-overlay" onClick={() => setShowAddModal(false)}></div>
+          <div className="modal">
+            <div className="modal-header">
+              <h2>Add New Man Power</h2>
+              <button className="modal-close" onClick={() => setShowAddModal(false)}><X size={24} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group"><label>Nama</label><input type="text" value={addForm.name} onChange={(e) => setAddForm({...addForm, name: e.target.value})} className="form-input" /></div>
+              <div className="form-group"><label>NIK</label><input type="text" value={addForm.nik} onChange={(e) => setAddForm({...addForm, nik: e.target.value})} className="form-input" /></div>
+              <div className="form-group"><label>Position</label><input type="text" value={addForm.position} onChange={(e) => setAddForm({...addForm, position: e.target.value})} className="form-input" /></div>
+              <div className="form-group">
+                <label>Department</label>
+                <select value={addForm.department} onChange={(e) => setAddForm({...addForm, department: e.target.value})} className="form-input">
+                  <option value="Engineering">Engineering</option>
+                  <option value="Maintenance">Maintenance</option>
+                  <option value="Operations">Operations</option>
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-cancel" onClick={() => setShowAddModal(false)}>Cancel</button>
+              <button className="btn-save" onClick={handleSaveAdd}>Save</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* MODAL QR */}
+      {showQrModal && (
+        <>
+          <div className="modal-overlay" onClick={() => setShowQrModal(false)}></div>
+          <div className="modal">
+            <div className="modal-header"><h2>QR Code Viewer</h2><button className="modal-close" onClick={() => setShowQrModal(false)}><X size={24} /></button></div>
+            <div className="modal-body" style={{textAlign:'center'}}>
+              {qrGenerating ? <p>Loading...</p> : <img src={qrDataUrl} alt="QR" style={{width:250}} />}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-save" onClick={downloadPDF}>Download PDF</button>
+              <button className="btn-cancel" onClick={() => setShowQrModal(false)}>Close</button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

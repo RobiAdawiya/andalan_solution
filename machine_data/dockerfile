@@ -1,0 +1,5 @@
+FROM python:3.10-slim
+WORKDIR /app
+RUN pip install --no-cache-dir paho-mqtt==2.0.0 psycopg2-binary==2.9.7
+COPY machine_data.py /app/machine_data.py
+CMD ["python", "machine_data.py"]

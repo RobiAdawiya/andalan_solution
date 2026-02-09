@@ -1,0 +1,258 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ===== RESET ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Inter", sans-serif;
+}
+
+html, body {
+  height: 100%;
+  background: #f5f7fa;
+}
+
+#root {
+  height: 100%;
+}
+
+/* ===== APP LAYOUT ===== */
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ===== TOPBAR ===== */
+.topbar {
+  height: 60px;
+  background: white;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 24px;
+  border-bottom: 1px solid #e0e0e0;
+  z-index: 1000;
+  flex-shrink: 0;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* MENU BUTTON */
+.menu-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.menu-btn:hover {
+  transform: scale(1.1);
+}
+
+.menu-btn img {
+  width: 28px;
+  height: 28px;
+}
+
+/* TITLE */
+.topbar-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #0b4a8b;
+  margin: 0;
+  line-height: 1;
+}
+
+/* RIGHT SIDE */
+.topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.topbar-right span {
+  font-size: 1rem;
+  font-weight: 400;
+  color: #0b4a8b;
+  line-height: 1;
+}
+
+/* LOGOUT BUTTON */
+.logout-btn {
+  background: #0b4a8b;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+
+/* ===== PAGE CONTENT ===== */
+.page-content {
+  flex: 1;
+  overflow-y: auto;
+  background: #f5f7fa;
+  padding: 20px;
+}
+
+.topbar-logo {
+  height: 50px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .topbar {
+    height: 60px;
+    padding: 0 16px;
+    gap: 15px;
+  }
+  
+  .topbar-title {
+    font-size: 1.5rem;
+  }
+
+  .menu-btn img {
+    width: 24px;
+    height: 24px;
+  }
+
+  .topbar-right {
+    gap: 15px;
+  }
+
+  .topbar-right span {
+    font-size: 0.9rem;
+  }
+
+  .logout-btn {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .topbar {
+    height: 56px;
+    gap: 12px;
+  }
+  
+  .topbar-title {
+    font-size: 1.3rem;
+  }
+
+  .topbar-right span {
+    display: none;
+  }
+
+  .logout-btn {
+    padding: 8px 14px;
+  }
+  
+  .page-content {
+    padding: 15px;
+  }
+}
+
+/* INTERACTIVE USER STYLES */
+.user-profile-container {
+  position: relative;
+  display: inline-block;
+}
+
+.interactive-user {
+  cursor: pointer;
+  color: #0b4a8b;
+  text-decoration: underline;
+  margin-left: 4px;
+}
+
+.user-dropdown-message {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 10px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+  min-width: 200px;
+}
+
+.user-dropdown-message input {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.save-btn {
+  background: #0b4a8b;
+  color: white;
+  border: none;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.save-btn:hover {
+  background: #0b4a8b;
+}
+
+/* Ensure timestamp button fits well */
+.logout-btn {
+  min-width: 110px;
+  font-family: monospace; /* Keeps timestamp width stable */
+}
+.main-content {
+  flex: 1;
+  padding: 20px;
+  transition: margin-left 0.3s ease;
+}
+
+.main-content.shifted {
+  margin-left: 250px;
+}
+
+/* Di dalam App.css */
+.topbar-time {
+  font-size: 14px;
+  color: #333;       /* Warna teks gelap standar */
+  font-weight: 500;
+  padding: 0 15px;
+  cursor: default;   /* Memastikan mouse tetap panah biasa, bukan jari */
+  user-select: none; /* Mencegah teks terpilih saat tidak sengaja diklik */
+}
+
+.user-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: transparent; /* Atau gunakan rgba(0,0,0,0.05) jika ingin efek redup */
+  z-index: 999; /* Harus tepat di bawah dropdown menu */
+}

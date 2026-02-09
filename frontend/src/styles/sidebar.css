@@ -1,0 +1,152 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+.sidebar {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  width: 250px;
+  height: calc(100vh - 60px);
+  background-color: #0b4a8b;
+  color: white;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.3s ease-out;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0;
+}
+
+.sidebar-section {
+  margin-bottom: 1.5rem;
+}
+
+.sidebar-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.5rem 1.5rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.sidebar-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 1rem;
+  text-align: left;
+}
+
+.sidebar-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-item.active {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-left: 4px solid white;
+  padding-left: calc(1.5rem - 4px);
+}
+
+.sidebar-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: #d3d3d3;
+  color: #0b4a8b;
+}
+
+.sidebar-user {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  color: #0b4a8b;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 400;
+  border-bottom: 2px solid #0b4a8b;
+}
+
+.sidebar-user .chevron {
+  margin-left: auto;
+}
+
+.sidebar-user:hover {
+  opacity: 0.8;
+}
+
+.password-form {
+  padding: 1.5rem 1rem;
+  background-color: #d3d3d3;
+  color: #0b4a8b;
+}
+
+.password-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: #0b4a8b;
+}
+
+.password-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  background-color: white;
+  box-sizing: border-box;
+}
+
+.password-input:focus {
+  outline: 2px solid #0b4a8b;
+}
+
+.save-btn {
+  width: 60%;
+  padding: 0.75rem;
+  background-color: white;
+  color: #0b4a8b;
+  border: 2px solid #0b4a8b;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: block;
+  margin: 0 auto;
+}
+
+.save-btn:hover {
+  background-color: #0b4a8b;
+  color: white;
+  border-color: #0b4a8b;
+}
