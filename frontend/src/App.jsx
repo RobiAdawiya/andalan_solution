@@ -76,18 +76,23 @@ function App() {
     setPasswordError("");
 
     if (!oldPassword || !newPassword || !confirmPassword) {
-      setPasswordError("All fields must be filled");
+      setPasswordError("Error! All fields must be filled");
       return;
     }
 
     if (!newPassword || !confirmPassword) {
-      setPasswordError("Both fields must be filled");
+      setPasswordError("Error! Both fields must be filled");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordError("Passwords do not match");
+      setPasswordError("Error! Passwords do not match");
       return;
+    }
+
+    if (oldPassword.trim() === newPassword.trim()) {
+      setPasswordError("Error! New password cannot be the same as the old password");
+      return; 
     }
 
     try {
