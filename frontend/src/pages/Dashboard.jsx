@@ -12,7 +12,7 @@ import DeviceCard from "../components/DeviceCard";
 import TimelineCard from "../components/TimelineCard";
 
 // API Imports
-import { getMachineLogs, getProductList, getManpowerList, getProductLogs, getFilteredMachineLogs } from "../services/api";
+import { getMachineLogs, getProductList, getManpowerList, getProductLogs, getFilteredMachineLogs, getDeviceList } from "../services/api";
 // Helper to get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
   const today = new Date();
@@ -24,7 +24,11 @@ const getTodayDate = () => {
 
 export default function Dashboard() {
   // --- STATE MANAGEMENT ---
+// --- STATE MANAGEMENT ---
   const [loading, setLoading] = useState(true);
+  // NEW: Store the list of generated device cards here
+  const [devices, setDevices] = useState([]); 
+
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [startDate, setStartDate] = useState(getTodayDate());
@@ -32,15 +36,18 @@ export default function Dashboard() {
   const [comparisonStartDate, setComparisonStartDate] = useState(getTodayDate());
   const [comparisonEndDate, setComparisonEndDate] = useState(getTodayDate());
   const [showComparisonFilter, setShowComparisonFilter] = useState(false);
-  const [latestData, setLatestData] = useState({});
-  const [counts, setCounts] = useState({ manpower: 0, parts: 0 });
+  
+  const [counts, setCounts] = useState({ manpower: 0, parts: 0, machines: 0 });
   const [dynamicStatusSummary, setDynamicStatusSummary] = useState({
     running: "00:00:00",
     standby: "00:00:00",
     total: "00:00:00"
   });
   const [dynamicChartTimeline, setDynamicChartTimeline] = useState([]);
-  
+  const parseUTC = (dateString) => {
+    if (!dateString) return new Date();
+    return new Date(dateString.endsWith("Z") ? dateString : dateString + "Z");
+  };
   const [comparisonStatusSummary, setComparisonStatusSummary] = useState({
     running: "00:00:00",
     standby: "00:00:00",
@@ -51,6 +58,21 @@ export default function Dashboard() {
 
   // NEW: State for dynamic labels
   const [timelineLabels, setTimelineLabels] = useState(["08:00", "12:00", "16:00", "20:00"]);
+
+  // --- HELPER: Generate Dynamic Labels ---
+  const generateTimeLabels = (start, end) => {
+    const labels = [];
+    const totalDuration = end - start; // difference in milliseconds
+    const interval = totalDuration / 4; // We want 5 labels, so 4 intervals
+
+    for (let i = 0; i <= 4; i++) {
+      const newTime = new Date(start.getTime() + (interval * i));
+      // Format as HH:mm
+      const label = newTime.toTimeString().slice(0, 5);
+      labels.push(label);
+    }
+    return labels;
+  };
 
   const [scrollPosition, setScrollPosition] = useState(0);
 
@@ -73,6 +95,81 @@ export default function Dashboard() {
     const m = Math.floor((seconds % 3600) / 60);
     const s = Math.floor(seconds % 60);
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+// --- UPDATED HELPER: CALCULATE TIMELINE ---
+  const calculateTimeline = (allLogs, machineId, startStr, endStr) => {
+    const startFilter = new Date(startStr);
+    const endFilter = new Date(endStr);
+    endFilter.setHours(23, 59, 59, 999);
+    
+    const statusLogs = allLogs
+      .filter(log => log.machine_id === machineId && log.tag_name === "Machine_Status")
+      .filter(log => {
+        // USE parseUTC HERE
+        const logDate = parseUTC(log.created_at);
+        return logDate >= startFilter && logDate <= endFilter;
+      })
+      .sort((a, b) => parseUTC(a.created_at) - parseUTC(b.created_at)); // USE parseUTC HERE
+
+    let runningTime = 0;
+    let standbyTime = 0;
+    const segments = [];
+
+    if (statusLogs.length > 0) {
+      for (let i = 0; i < statusLogs.length - 1; i++) {
+        const current = statusLogs[i];
+        const next = statusLogs[i + 1];
+        
+        // USE parseUTC HERE
+        const currentDate = parseUTC(current.created_at);
+        const nextDate = parseUTC(next.created_at);
+
+        const duration = (nextDate - currentDate) / 1000;
+        
+        // The .toTimeString() will now output YOUR LOCAL TIME automatically
+        const start = currentDate.toTimeString().slice(0, 5);
+        const end = nextDate.toTimeString().slice(0, 5);
+
+        if (parseFloat(current.tag_value) === 1.0) {
+          runningTime += duration;
+          segments.push({ start, end, status: "RUNNING", color: "#00BCD4" });
+        } else {
+          standbyTime += duration;
+          segments.push({ start, end, status: "STOP", color: "#FF5252" });
+        }
+      }
+
+      // Handle Last Segment (Live Status)
+      const lastLog = statusLogs[statusLogs.length - 1];
+      const lastLogDate = parseUTC(lastLog.created_at); // USE parseUTC HERE
+      const now = new Date();
+      const cutoff = now < endFilter ? now : endFilter; 
+      
+      if (lastLogDate < cutoff) {
+        const duration = (cutoff - lastLogDate) / 1000;
+        const start = lastLogDate.toTimeString().slice(0, 5);
+        const end = cutoff.toTimeString().slice(0, 5);
+        
+        if (parseFloat(lastLog.tag_value) === 1.0) {
+          runningTime += duration;
+          segments.push({ start, end, status: "RUNNING", color: "#00BCD4" });
+        } else {
+          standbyTime += duration;
+          segments.push({ start, end, status: "STOP", color: "#FF5252" });
+        }
+      }
+    }
+
+    return {
+      timeline: segments,
+      summary: {
+        running: formatTime(runningTime),
+        standby: formatTime(standbyTime),
+        total: formatTime(runningTime + standbyTime)
+      },
+      hasData: statusLogs.length > 0
+    };
   };
 
   useEffect(() => {
@@ -171,102 +268,113 @@ export default function Dashboard() {
       }
     }; 
 
-  // --- 1. DATA FETCHING & SYNC ---
+// --- 1. DATA FETCHING & SYNC ---
   const fetchDashboardData = async () => {
     try {
-      const startFilter = new Date(startDate);
-      const endFilter = new Date(endDate);
-      endFilter.setHours(23, 59, 59, 999);
+      
+      const startObj = new Date(startDate);
+      startObj.setHours(0, 0, 0, 0); // Start of day (00:00)
 
-      const [machineLogs, manpowerData, partsData, productLogs] = await Promise.all([
+      const endObj = new Date(endDate);
+      // If start and end dates are same (e.g. Today), end at NOW or 23:59
+      if (startDate === endDate) {
+         endObj.setHours(23, 59, 59, 999);
+      } else {
+         endObj.setHours(23, 59, 59, 999); 
+      }
+
+      // Generate the labels
+      const newLabels = generateTimeLabels(startObj, endObj);
+      setTimelineLabels(newLabels);
+      
+      // Do the same for Comparison Labels if you want them dynamic too
+      const compStartObj = new Date(comparisonStartDate);
+      compStartObj.setHours(0, 0, 0, 0);
+      const compEndObj = new Date(comparisonEndDate);
+      compEndObj.setHours(23, 59, 59, 999);
+      
+      setComparisonTimelineLabels(generateTimeLabels(compStartObj, compEndObj));
+
+      // Fetch Everything
+      const [machineLogs, manpowerData, partsData, productLogs, registeredDevices] = await Promise.all([
         getMachineLogs(),
         getManpowerList(),
         getProductList(),
-        getProductLogs()
+        getProductLogs(),
+        getDeviceList()
       ]);
 
-      // Pivot database logs ke format Key-Value untuk akses mudah
-      const pivot = {};
+      // Pivot logs by machine_id
+      const pivotByMachine = {};
       machineLogs.forEach((log) => {
-        if (!(log.tag_name in pivot)) {
-          pivot[log.tag_name] = log.tag_value;
-          pivot["machine_id"] = log.machine_id;
-        }
-      });
-      setLatestData(pivot);
-
-      const currentMachineId = pivot["machine_id"] || "machine_01";
-      
-      
-      // 2. Filter Logs for Stats/Counts (This remains dependent on Date Filter)
-      const filteredProductLogs = productLogs.filter(log => {
-        const logDate = new Date(log.created_at);
-        return logDate >= startFilter && logDate <= endFilter;
+        if (!pivotByMachine[log.machine_id]) pivotByMachine[log.machine_id] = {};
+        pivotByMachine[log.machine_id][log.tag_name] = log.tag_value;
       });
 
+      // Map Devices
+      const mappedDevices = registeredDevices.map((device, index) => {
+        const machineId = device.machine_name;
+        const currentData = pivotByMachine[machineId] || {};
+
+        // --- USE THE HELPER FUNCTION FOR BOTH TIMELINES ---
+        const mainTimeline = calculateTimeline(machineLogs, machineId, startDate, endDate);
+        const compTimeline = calculateTimeline(machineLogs, machineId, comparisonStartDate, comparisonEndDate);
+
+        return {
+          id: index + 1,
+          name: device.machine_name.replace(/_/g, " ").toUpperCase(),
+          deviceName: machineId,
+          serialNumber: device.serial_number,
+          
+          status: currentData["WISE4010:Green_Lamp"] === "1" ? "Active" : "Warning",
+          deviceStatus: parseFloat(currentData["Machine_Status"]) === 1.0 ? "RUNNING" : "STOP",
+          lastMaintenance: "2026-01-20", 
+          uptime: "98.5%",
+          
+          voltage: `${currentData["PA330:Voltage"] || 0} V`,
+          current: `${currentData["PA330:Current"] || 0} A`,
+          power: `${currentData["PA330:Real_Power"] || 0} kW`,
+          kwh: `${currentData["PA330:Energy"] || 0} kWh`,
+          powerFactor: currentData["PA330:Power_Factor"] || "0.0",
+          temperature: `${currentData["WISE4010:Temperature"] || 0}°C`,
+          
+          assignedManPower: currentData["ManPower_Validation"] || "No Operator",
+          assignedParts: currentData["Product_Validation"] || "No Part Active",
+          
+          // --- ASSIGN CALCULATED DATA ---
+          statusSummary: mainTimeline.summary,
+          chartTimeline: mainTimeline.timeline,
+          
+          comparisonStatusSummary: compTimeline.summary,
+          comparisonChartTimeline: compTimeline.timeline, // Now fully populated!
+
+          historyTable: [
+            { 
+                no: 1, 
+                status: parseFloat(currentData["Machine_Status"]) === 1.0 ? "RUNNING" : "STOP", 
+                from: startDate, 
+                until: new Date().toLocaleString(), 
+                manPower: currentData["ManPower_Validation"] || "N/A", 
+                part: currentData["Product_Validation"] || "No Part Active" 
+            },
+          ]
+        };
+      });
+
+      // Update Counts
       setCounts({
         manpower: manpowerData.length,
-        parts: partsData.length
+        parts: partsData.length,
+        machines: registeredDevices.length
       });
 
-      // Process Machine_Status logs for dynamic statusSummary and chartTimeline with Date Filter
-      const statusLogs = machineLogs
-        .filter(log => log.tag_name === "Machine_Status")
-        .filter(log => {
-          const logDate = new Date(log.created_at);
-          return logDate >= startFilter && logDate <= endFilter;
-        })
-        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-
-      let runningTime = 0;
-      let standbyTime = 0; 
-      const segments = [];
-
-      for (let i = 0; i < statusLogs.length - 1; i++) {
-        const current = statusLogs[i];
-        const next = statusLogs[i + 1];
-        const duration = (new Date(next.created_at) - new Date(current.created_at)) / 1000;
-
-        const start = new Date(current.created_at).toTimeString().slice(0, 5);
-        const end = new Date(next.created_at).toTimeString().slice(0, 5);
-        let status, color;
-
-        if (parseFloat(current.tag_value) === 1.0) {
-          status = "RUNNING";
-          color = "#00BCD4";
-          runningTime += duration;
-        } else {
-          status = "STOP"; 
-          color = "#FF5252";
-          standbyTime += duration;
-        }
-
-        segments.push({ start, end, status, color });
+      // Update Timeline Labels based on the first device that has data
+      const activeDevice = mappedDevices.find(d => d.chartTimeline.length > 0);
+      if (activeDevice && activeDevice.chartTimeline.length > 0) {
+         // Optional: Add logic here to set dynamic labels if needed
       }
 
-      // --- GENERATE DYNAMIC TIMELINE LABELS ---
-      if (statusLogs.length >= 2) {
-        const firstTime = new Date(statusLogs[0].created_at);
-        const lastTime = new Date(statusLogs[statusLogs.length - 1].created_at);
-        const labelCount = 5; 
-        const newLabels = [];
-        const intervalMs = (lastTime - firstTime) / (labelCount - 1);
-
-        for (let i = 0; i < labelCount; i++) {
-          const labelTime = new Date(firstTime.getTime() + (intervalMs * i));
-          newLabels.push(labelTime.toTimeString().slice(0, 5));
-        }
-        setTimelineLabels(newLabels);
-      }
-
-      const totalTime = runningTime + standbyTime;
-      setDynamicStatusSummary({
-        running: formatTime(runningTime),
-        standby: formatTime(standbyTime),
-        total: formatTime(totalTime)
-      });
-      setDynamicChartTimeline(segments);
-
+      setDevices(mappedDevices);
       setLoading(false);
     } catch (error) {
       console.error("Sync Error:", error);
@@ -281,50 +389,50 @@ export default function Dashboard() {
   }, [startDate, endDate]);
 
   // --- 2. DYNAMIC MAPPING (Merging UI & API Data) ---
-  const devices = [
-    {
-      id: 1,
-      name: "Machine 01",
-      deviceName: latestData["machine_id"] || "Machine-01",
-      status: latestData["WISE4010:Green_Lamp"] === "1" ? "Active" : "Warning",
-      deviceStatus: parseFloat(latestData["Machine_Status"]) === 1.0 ? "RUNNING" : "STOP",
-      lastMaintenance: "2026-01-20", 
-      uptime: "98.5%",
+  // const devices = [
+  //   {
+  //     id: 1,
+  //     name: "Machine 01",
+  //     deviceName: latestData["machine_id"] || "Machine-01",
+  //     status: latestData["WISE4010:Green_Lamp"] === "1" ? "Active" : "Warning",
+  //     deviceStatus: parseFloat(latestData["Machine_Status"]) === 1.0 ? "RUNNING" : "STOP",
+  //     lastMaintenance: "2026-01-20", 
+  //     uptime: "98.5%",
       
-      // Power Meter Parameters (Fetched from API)
-      voltage: `${latestData["PA330:Voltage"] || 0} V`,
-      current: `${latestData["PA330:Current"] || 0} A`,
-      power: `${latestData["PA330:Real_Power"] || 0} kW`,
-      kwh: `${latestData["PA330:Energy"] || 0} kWh`,
-      powerFactor: latestData["PA330:Power_Factor"] || "0.95",
-      temperature: `${latestData["WISE4010:Temperature"] || 0}°C`,
+  //     // Power Meter Parameters (Fetched from API)
+  //     voltage: `${latestData["PA330:Voltage"] || 0} V`,
+  //     current: `${latestData["PA330:Current"] || 0} A`,
+  //     power: `${latestData["PA330:Real_Power"] || 0} kW`,
+  //     kwh: `${latestData["PA330:Energy"] || 0} kWh`,
+  //     powerFactor: latestData["PA330:Power_Factor"] || "0.95",
+  //     temperature: `${latestData["WISE4010:Temperature"] || 0}°C`,
       
-      // Assignment Data
-      assignedManPower: latestData["ManPower_Validation"] || "No Operator",
-      assignedParts: latestData["Product_Validation"] || "No Part Active",
+  //     // Assignment Data
+  //     assignedManPower: latestData["ManPower_Validation"] || "No Operator",
+  //     assignedParts: latestData["Product_Validation"] || "No Part Active",
       
-      // UI Features: Timeline & History (Now Dynamic)
-      statusSummary: dynamicStatusSummary,
-      chartTimeline: dynamicChartTimeline,
+  //     // UI Features: Timeline & History (Now Dynamic)
+  //     statusSummary: dynamicStatusSummary,
+  //     chartTimeline: dynamicChartTimeline,
 
-      comparisonStatusSummary: comparisonStatusSummary,
-      comparisonChartTimeline: comparisonChartTimeline,
+  //     comparisonStatusSummary: comparisonStatusSummary,
+  //     comparisonChartTimeline: comparisonChartTimeline,
 
-      historyTable: [
-        { 
-            no: 1, 
-            status: parseFloat(latestData["Machine_Status"]) === 1.0 ? "RUNNING" : "STOP", 
-            from: startDate, 
-            until: new Date().toLocaleString(), 
-            manPower: latestData["ManPower_Validation"] || "N/A", 
-            part: latestData["Product_Validation"] || "No Part Active" 
-        },
-      ]
-    }
-  ];
+  //     historyTable: [
+  //       { 
+  //           no: 1, 
+  //           status: parseFloat(latestData["Machine_Status"]) === 1.0 ? "RUNNING" : "STOP", 
+  //           from: startDate, 
+  //           until: new Date().toLocaleString(), 
+  //           manPower: latestData["ManPower_Validation"] || "N/A", 
+  //           part: latestData["Product_Validation"] || "No Part Active" 
+  //       },
+  //     ]
+  //   }
+  // ];
 
   const stats = [
-    { label: "Machine", count: devices.length, icon: <Monitor size={32} /> },
+    { label: "Machine", count: counts.machines, icon: <Monitor size={32} /> },,
     { label: "Man Power", count: counts.manpower, icon: <Users size={32} /> },
     { label: "Parts", count: counts.parts, icon: <Wrench size={32} /> },
     { label: "Work Order", count: 6, icon: <ClipboardList size={32} /> },
