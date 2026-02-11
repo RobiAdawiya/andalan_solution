@@ -1,24 +1,26 @@
 import React from "react";
 import { Activity, Zap, Battery, TrendingUp, Thermometer } from "lucide-react";
 
+const getBadgeClass = (status) => {
+  if (status === "RUNNING") return "status-running"; // Hijau/Biru
+  if (status === "STANDBY") return "status-warning"; // Kuning (sesuai logic CSS anda sebelumnya)
+  return "status-stop";   // Merah
+};
+
 export default function DeviceCard({ device, onViewDetails }) {
   return (
     <div className="device-card-dashboard">
       <div className="device-card-header">
-        <h3>{device.name}</h3>
-        <span
-          className={`device-badge status-${
-            device.deviceStatus === "RUNNING" ? "active" : "warning"
-          }`}
-        >
+        <h3>{device.name}</h3>          
+        <span className={`device-badge ${getBadgeClass(device.deviceStatus)}`}>
           {device.deviceStatus}
         </span>
       </div>
 
       <div className="device-card-info">
-        <div className="info-row">
+        {/* <div className="info-row">
           <Activity size={16} /> <span>Uptime: {device.uptime}</span>
-        </div>
+        </div> */}
         <div className="info-row">
           <Zap size={16} /> <span>Voltage: {device.voltage}</span>
         </div>

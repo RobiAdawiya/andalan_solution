@@ -77,13 +77,46 @@ def get_machine_logs():
             SELECT machine_id, tag_name, tag_value, created_at 
             FROM log_machine 
             ORDER BY created_at DESC
-            LIMIT 500
+            LIMIT 20000
         """
         cur.execute(query)
         logs = cur.fetchall()
         cur.close()
         conn.close()
         return logs
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+# 3.1. MACHINE STATUS
+@app.get("/machine/status")
+def get_machine_status_events(machine_id: str):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        query = """
+        WITH ordered AS (
+          SELECT
+            created_at,
+            tag_value::text AS status,
+            LAG(tag_value::text) OVER (ORDER BY created_at) AS prev_status
+          FROM log_machine
+          WHERE
+            machine_id = %s
+            AND tag_name = 'Machine_Status'
+        )
+        SELECT created_at, status
+        FROM ordered
+        WHERE prev_status IS DISTINCT FROM status
+        ORDER BY created_at;
+        """
+
+        cur.execute(query, (machine_id,))
+        data = cur.fetchall()
+        cur.close()
+        conn.close()
+        return data
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     

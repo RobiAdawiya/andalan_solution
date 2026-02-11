@@ -236,7 +236,7 @@
 }
 
 .timeline-chart {
-  background: #f9f9f9;
+  background: white;
   padding: 20px;
   border-radius: 8px;
   margin-top: 15px;
@@ -515,16 +515,26 @@
 }
 
 .device-badge.status-active {
-  background-color: #e8f5e9;
-  color: #4CAF50;
+  background-color: #d1f2eb;
+  color: #00BCD4;;
+}
+
+.device-badge.status-running {
+  background-color: #d1f2eb;
+  color: #00BCD4;;
 }
 
 .device-badge.status-warning {
   background-color: #fff3e0;
-  color: #FF9800;
+  color: #F57C00;
 }
 
-.device-badge.status-inactive {
+.device-badge.status-stop {
+  background-color: #fff3e0;
+  color: #F44336;
+}
+
+.device-badge.status-inrunnin.status-running {
   background-color: #ffebee;
   color: #F44336;
 }
@@ -866,6 +876,12 @@
   color: #F57C00;
 }
 
+.status-box.status-stop {
+  background: #FFF8E1;
+  color: #C62828;
+}
+
+
 .status-box.status-bypass {
   background: #ECEFF1;
   color: #546E7A;
@@ -873,7 +889,7 @@
 
 .status-box.status-total {
   background: #E8F5E9;
-  color: #2E7D32;
+  color: #6c757d;
 }
 
 .status-time {
@@ -882,7 +898,7 @@
 
 /* Timeline Chart */
 .timeline-chart {
-  background: #f9f9f9;
+  background: white;
   padding: 15px;
   border-radius: 8px;
 }
@@ -912,8 +928,33 @@
 .timeline-labels {
   display: flex;
   justify-content: space-between;
-  font-size: 0.75rem;
+  margin-top: 8px;
+  font-size: 11px; /* Ukuran font diperkecil sedikit agar mirip chart */
   color: #666;
+  width: 100%;
+  padding: 0; /* Pastikan tidak ada padding yang mengganggu alignment */
+}
+
+/* Style untuk setiap item label (span) */
+.timeline-labels span {
+  flex: 1; /* Membagi ruang sama rata */
+  text-align: center; /* Default tengah */
+  white-space: nowrap; /* Mencegah teks turun ke bawah */
+  
+  /* Trik posisi agar pas di titik-titik tick mark */
+  position: relative; 
+}
+
+/* Label PERTAMA: Rata Kiri */
+.timeline-labels span:first-child {
+  text-align: left;
+  transform: translateX(-2%); /* Geser sedikit ke kiri agar lurus garis */
+}
+
+/* Label TERAKHIR: Rata Kanan */
+.timeline-labels span:last-child {
+  text-align: right;
+  transform: translateX(2%); /* Geser sedikit ke kanan agar lurus garis */
 }
 
 /* Detail Section */
@@ -1308,6 +1349,11 @@
 
 .stat-item.standby .stat-label,
 .stat-item.standby .stat-value {
+  color: #F57C00;
+}
+
+.stat-item.stop .stat-label,
+.stat-item.stop .stat-value {
   color: #FF5252;
 }
 
@@ -1340,7 +1386,8 @@
 .comparison-timeline-labels {
   display: flex;
   justify-content: space-between;
-  padding: 4px 0 0;
+  width: 100%;
+  /* padding: 4px 0 0; */
 }
 
 .time-label {
@@ -1488,3 +1535,21 @@
     flex-wrap: wrap;
   }
 }
+
+.status-running {
+  background-color: #e0f7fa;
+  color: #006064;
+  border: 1px solid #00BCD4;
+}
+.status-standby, .status-warning {
+  background-color: #fff8e1;
+  color: #ff6f00;
+  border: 1px solid #FFC107;
+}
+
+/* Badge Stop */
+/* .status-stop {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #FF5252;
+} */

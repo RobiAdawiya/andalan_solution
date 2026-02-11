@@ -139,19 +139,35 @@ class BarcodeSystem:
                 return False, attempted_action, None
 
             status_msg = attempted_action
+            
+            # LOGIKA BARU: MANPOWER LOGOUT, PRODUCT AUTO STOP
+            if last_login["status"] == "login":
+                if machine_status != 1:
+                    logging.warning(f"❌ Manpower: Logout failed for {name} (NIK: {nik}) - EMG tidak aktif")
+                    return False, attempted_action, None
+                if str(last_login["nik"]) != str(nik):
+                    logging.warning(f"❌ Manpower: Logout failed - {last_login['name']} sedang login, bukan {name}")
+                    return False, attempted_action, None
 
-            if last_product and last_product["action"].lower() == "start":
-                logging.info("Manpower: Auto-stopping product karena logout")
+                # --- LOGIKA BARU: AUTO-STOP SEMUA PRODUK YANG MASIH 'START' ---
+                # Query ini akan langsung memasukkan status 'stop' untuk semua produk yang 
+                # status terakhirnya adalah 'start' milik manpower ini.
                 execute_query("""
                     INSERT INTO log_product (created_at, machine_name, name_product, action, name_manpower)
-                    VALUES (NOW(), %s, %s, 'stop', %s)
-                """, (
-                    last_product["machine_name"],
-                    last_product["name_product"],
-                    last_product["name_manpower"]
-                ))
-                status_msg += " & Product Auto-Stop"
-                self.last_product = {**last_product, "action": "stop"}  
+                    SELECT NOW(), lp.machine_name, lp.name_product, 'stop', lp.name_manpower
+                    FROM log_product lp
+                    WHERE lp.name_manpower = %s 
+                    AND lp.action = 'start'
+                    AND NOT EXISTS (
+                        SELECT 1 FROM log_product lp2 
+                        WHERE lp2.machine_name = lp.machine_name 
+                        AND lp2.name_product = lp.name_product 
+                        AND lp2.created_at > lp.created_at
+                    )
+                """, (name,))
+
+            status_msg = attempted_action + " & All Active Products Auto-Stopped"
+            self.last_product = None
 
             logging.debug(f"DEBUG Logout successfully Name : {name}, NIK : {nik}")
             logging.info(f"✅ Manpower: {name} (NIK: {nik}) logged out successfully")
@@ -195,8 +211,9 @@ class BarcodeSystem:
         if not manpower:
             logging.warning("Product: Tidak ada manpower login")
             return False, "Tidak ada manpower login"
-
-        last_product = fetch_one(f"SELECT action FROM log_product WHERE machine_name=%s ORDER BY created_at DESC LIMIT 1", (machine,))
+        
+        # LOGIKA BARU: MENGECEK STATUS DAN NAMA PRODUCT
+        last_product = fetch_one("""SELECT action FROM log_product WHERE machine_name=%s AND name_product=%s ORDER BY created_at DESC LIMIT 1""", (machine, product))
 
         action = "start" if not last_product or last_product["action"].lower() == "stop" else "stop"
 

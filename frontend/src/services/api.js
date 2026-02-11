@@ -102,6 +102,11 @@ export const changePassword = async (username, oldPassword, newPassword) => {
   return await response.json();
 };
 
+export const getMachineStatusEvents = async (machineId) => {
+  const res = await fetch(`${BASE_URL}/machine/status?machine_id=${machineId}`);
+  return res.json();
+};
+
 export const validateManpower = async (nik, nama) => {
   const response = await fetch(`${BASE_URL}/validate/manpower?nik=${nik}&nama=${nama}`);
   return await response.json();
