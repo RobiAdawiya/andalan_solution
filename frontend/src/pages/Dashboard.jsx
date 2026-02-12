@@ -18,13 +18,17 @@ import { getMachineLogs, getProductList, getManpowerList, getProductLogs, getFil
 const STATUS_CONFIG = {
   2.0: { label: "RUNNING", color: "#00BCD4" }, // Cyan/Teal
   1.0: { label: "STANDBY", color: "#FFC107" }, // Amber/Yellow
-  0.0: { label: "STOP", color: "#FF5252" },    // Red
-  "NO DATA": { label: "NO DATA", color: "#e0e0e0" } // Grey
+  0: { label: "STOP", color: "#FF5252" },    // Red
+  "NO DATA": { label: "NO DATA", color: "#D3D3D3" } // Grey
 };
 
 const getStatusStyle = (val) => {
   const numVal = parseFloat(val);
-  return STATUS_CONFIG[numVal] || STATUS_CONFIG["0.0"]; 
+  
+  // 1. Try finding exact match
+  // 2. Fallback to 0 (STOP)
+  // 3. Ultimate Safety Net: return a dummy object if everything fails
+  return STATUS_CONFIG[numVal] || STATUS_CONFIG[0] || { label: "OFFLINE", color: "#999" }; 
 };
 
 // Helper to get today's date in YYYY-MM-DD format
@@ -34,6 +38,30 @@ const getTodayDate = () => {
   const month = String(today.getMonth() + 1).padStart(2, '0');
   const day = String(today.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const formatDateTimeDisplay = (dateString) => {
+  if (!dateString) return "";
+  return dateString.replace("T", " ");
+};
+
+const getStartOfDayDateTime = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}T00:00`;
+};
+
+// Helper for DateTime Input (YYYY-MM-DDTHH:mm)
+const getCurrentDateTime = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
 // --- KOMPONEN TOOLTIP (CUSTOM POP-UP) ---
@@ -104,8 +132,14 @@ export default function Dashboard() {
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
 
-  const [comparisonStartDate, setComparisonStartDate] = useState(getTodayDate());
-  const [comparisonEndDate, setComparisonEndDate] = useState(getTodayDate());
+  // ACTIVE STATE (Used by the Chart/API
+  const [comparisonStartDate, setComparisonStartDate] = useState(getStartOfDayDateTime());
+  const [comparisonEndDate, setComparisonEndDate] = useState(getCurrentDateTime());
+  
+  // INPUT STATE (Used by the Input Fields only
+  const [tempStartDate, setTempStartDate] = useState(getStartOfDayDateTime());
+  const [tempEndDate, setTempEndDate] = useState(getCurrentDateTime());
+
   const [showComparisonFilter, setShowComparisonFilter] = useState(false);
     
   const [counts, setCounts] = useState({ manpower: 0, parts: 0, machines: 0 });
@@ -330,18 +364,14 @@ export default function Dashboard() {
       if (isTodayMain) endObj = new Date(); else endObj.setHours(23, 59, 59, 999);
       
       // Setup Time untuk Comparison Section
+      // Gunakan waktu spesifik dari input datetime-local
       const compStartObj = new Date(comparisonStartDate);
-      compStartObj.setHours(0, 0, 0, 0);
+      const compEndObj = new Date(comparisonEndDate);
       
-      let compEndObj = new Date(comparisonEndDate);
-      const isTodayComp = new Date().toDateString() === compEndObj.toDateString();
-      
-      // LOGIC DEFAULT: Jika hari ini (default), set akhir waktu ke SEKARANG (New Date).
-      // Ini memastikan sumbu X paling kanan adalah "Jam Saat Ini"
-      if (isTodayComp) {
-        compEndObj = new Date(); 
-      } else {
-        compEndObj.setHours(23, 59, 59, 999);
+      // Validasi sederhana agar tidak error jika invalid date
+      if (isNaN(compStartObj.getTime()) || isNaN(compEndObj.getTime())) {
+         console.error("Invalid Comparison Date");
+         return;
       }
       
       // 2. Fetch API
@@ -375,7 +405,7 @@ export default function Dashboard() {
         const machineId = device.machine_name;
         const currentData = pivotByMachine[machineId] || {};
         const rawStatus = currentData["Machine_Status"];
-        const statusObj = getStatusStyle(rawStatus);
+        const statusObj = getStatusStyle(rawStatus) || STATUS_CONFIG[0];
         const deviceEvents = eventsByMachine[machineId] || [];
         
         const mainTimeline = calculateTimelineFromEvents(deviceEvents, startObj, endObj);
@@ -482,6 +512,11 @@ export default function Dashboard() {
     }
   };
 
+  const handleApplyFilter = () => {
+    setComparisonStartDate(tempStartDate);
+    setComparisonEndDate(tempEndDate);
+  };
+
   useEffect(() => {
     fetchDashboardData();
     const interval = setInterval(fetchDashboardData, 5000);
@@ -584,21 +619,54 @@ export default function Dashboard() {
                 <Calendar size={16} /> {showComparisonFilter ? 'Hide Filter' : 'Show Filter'}
               </button>
               <div className="comparison-date-display">
-                <Calendar size={14} /> <span>{comparisonStartDate} to {comparisonEndDate}</span>
+                <Calendar size={14} /> 
+                <span>
+                  {formatDateTimeDisplay(comparisonStartDate)} to {formatDateTimeDisplay(comparisonEndDate)}
+                </span>
               </div>
             </div>
           </div>
 
-          {showComparisonFilter && (
+            {showComparisonFilter && (
             <div className="comparison-filter-bar">
               <div className="filter-group">
-                <label>Start Date</label>
-                <input type="date" value={comparisonStartDate} onChange={(e) => setComparisonStartDate(e.target.value)} />
+                <label>Start Date & Time</label>
+                {/* UBAH ke datetime-local dan gunakan state TEMP */}
+                <input 
+                  type="datetime-local" 
+                  value={tempStartDate} 
+                  onChange={(e) => setTempStartDate(e.target.value)} 
+                />
               </div>
               <div className="filter-group">
-                <label>End Date</label>
-                <input type="date" value={comparisonEndDate} onChange={(e) => setComparisonEndDate(e.target.value)} />
+                <label>End Date & Time</label>
+                {/* UBAH ke datetime-local dan gunakan state TEMP */}
+                <input 
+                  type="datetime-local" 
+                  value={tempEndDate} 
+                  onChange={(e) => setTempEndDate(e.target.value)} 
+                />
               </div>
+              
+              {/* TOMBOL APPLY FILTER */}
+              <button 
+                className="btn-apply-filter" 
+                onClick={handleApplyFilter}
+                style={{ 
+                  marginLeft: '10px', 
+                  padding: '8px 16px', 
+                  backgroundColor: '#0b4a8b', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  height: '38px', // Biar align sama input
+                  alignSelf: 'flex-end'
+                }}
+              >
+                Apply Filter
+              </button>
             </div>
           )}
 
@@ -692,7 +760,8 @@ export default function Dashboard() {
                               backgroundColor: segment.color, 
                               flex: segment.duration,
                               position: 'relative',
-                              opacity: segment.status === 'NO DATA' ? 0 : 1 
+                              opacity: 1
+                              // opacity: segment.status === 'NO DATA' ? 0 : 1 
                           }}
                           onMouseEnter={(e) => handleMouseEnterSegment(e, segment)}
                           onMouseLeave={handleMouseLeaveSegment}
