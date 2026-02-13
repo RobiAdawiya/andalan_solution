@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { QrCode, Edit, Trash2, X, Search, History, ChevronLeft, ChevronRight } from "lucide-react"; // TAMBAHKAN ChevronLeft, ChevronRight
+import { QrCode, Edit, Trash2, X, Search, History, ChevronLeft, ChevronRight, Download } from "lucide-react"; 
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
 import "../styles/manpower.css";
@@ -10,8 +10,15 @@ export default function ManPower() {
   const [loading, setLoading] = useState(true);
   const [manPowerData, setManPowerData] = useState([]);
   const [allLogs, setAllLogs] = useState([]);
+  
+  // History Modal & Filter States
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState({ name: "", logs: [] });
+  const [historyStart, setHistoryStart] = useState(""); // Input State
+  const [historyEnd, setHistoryEnd] = useState("");     // Input State
+  const [activeHistoryStart, setActiveHistoryStart] = useState(""); // Active Filter State
+  const [activeHistoryEnd, setActiveHistoryEnd] = useState("");     // Active Filter State
+
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -96,16 +103,80 @@ export default function ManPower() {
       name: person.name,
       logs: history
     });
+    
+    // Reset filters when opening modal
+    setHistoryStart("");
+    setHistoryEnd("");
+    setActiveHistoryStart("");
+    setActiveHistoryEnd("");
+    
     setShowHistoryModal(true);
   };
 
+  // --- 3b. HISTORY FILTER HANDLERS ---
+  const handleApplyHistoryFilter = () => {
+    setActiveHistoryStart(historyStart);
+    setActiveHistoryEnd(historyEnd);
+  };
+
+  const handleClearHistoryFilter = () => {
+    setHistoryStart("");
+    setHistoryEnd("");
+    setActiveHistoryStart("");
+    setActiveHistoryEnd("");
+  };
+
+  const handleExportHistoryCSV = () => {
+    // Filter data based on ACTIVE filter state
+    const filteredLogs = selectedHistory.logs.filter(log => {
+      const logDate = new Date(log.created_at);
+      const start = activeHistoryStart ? new Date(activeHistoryStart) : null;
+      const end = activeHistoryEnd ? new Date(activeHistoryEnd) : null;
+      
+      if (start && logDate < start) return false;
+      if (end && logDate > end) return false;
+      return true;
+    });
+
+    if (filteredLogs.length === 0) {
+      alert("No data to export!");
+      return;
+    }
+
+    // CSV Headers
+    const headers = ["No", "Timestamp", "Action", "Name"];
+    
+    // CSV Rows
+    const rows = filteredLogs.map((log, index) => [
+      index + 1,
+      new Date(log.created_at).toLocaleString("en-GB", { hour12: false }).replace(",", ""), // Format Date 24h
+      log.status,
+      selectedHistory.name
+    ]);
+
+    // Combine & Download
+    const csvContent = [
+      headers.join(","), 
+      ...rows.map(e => e.join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `History_${selectedHistory.name}_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // --- 4. CRUD HANDLERS ---
-  const handleAddManPower = () => { // TAMBAHKAN FUNGSI INI
+  const handleAddManPower = () => { 
     setAddForm({ name: "", nik: "", department: "Engineering", position: "" });
     setShowAddModal(true);
   };
 
-  const handleEdit = (mp) => { // GANTI handleEditClick
+  const handleEdit = (mp) => { 
     setEditingPerson({ ...mp });
     setShowEditModal(true);
   };
@@ -116,7 +187,6 @@ export default function ManPower() {
       return;
     }
     try {
-      // const response = await fetch("https://andalan-fluids-1.wahyutech.my.id:8443/editmanpower", {
       const response = await fetch("/api/editmanpower", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -151,7 +221,7 @@ export default function ManPower() {
     } catch (err) { alert("Server Error"); }
   };
 
-  const handleDelete = async (mp) => { // PERBAIKI PARAMETER
+  const handleDelete = async (mp) => {
     if (window.confirm(`Delete ${mp.name}?`)) {
       try {
       const response = await fetch("/api/delete_manpower", {
@@ -350,28 +420,127 @@ export default function ManPower() {
               <button className="modal-close" onClick={() => setShowHistoryModal(false)}><X size={24} /></button>
             </div>
             <div className="modal-body">
-              <table className="history-table">
-                <thead>
-                  <tr>
-                    <th>No.</th>
-                    <th>Timestamp</th>
-                    <th>Status</th>
-                    {/* <th>Machine</th>
-                    <th>Product</th> */}
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedHistory.logs.map((log, i) => (
-                    <tr key={i}>
-                      <td>{i + 1}</td>
-                      <td>{new Date(log.created_at).toLocaleString()}</td>
-                      <td><span className={`status-badge status-${log.status}`}>{log.status}</span></td>
-                      {/* <td>{log.machine_name || "-"}</td>
-                      <td>{log.name_product || "-"}</td> */}
+              
+              {/* --- FILTER & EXPORT SECTION --- */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '10px', 
+                marginBottom: '15px', 
+                alignItems: 'flex-end',
+                flexWrap: 'wrap',
+                background: '#f8f9fa',
+                padding: '15px',
+                borderRadius: '8px'
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#555' }}>Start Date</label>
+                  <input 
+                    type="datetime-local" 
+                    value={historyStart}
+                    onChange={(e) => setHistoryStart(e.target.value)}
+                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#555' }}>End Date</label>
+                  <input 
+                    type="datetime-local" 
+                    value={historyEnd}
+                    onChange={(e) => setHistoryEnd(e.target.value)}
+                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
+                  />
+                </div>
+                
+                {/* BUTTON GROUP */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    onClick={handleApplyHistoryFilter}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#0b4a8b', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '6px', 
+                      cursor: 'pointer',
+                      fontWeight: '500'
+                    }}
+                  >
+                    Apply Filter
+                  </button>
+                  <button 
+                    onClick={handleClearHistoryFilter}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#fff', 
+                      color: '#333', 
+                      border: '1px solid #ddd', 
+                      borderRadius: '6px', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    Clear
+                  </button>
+                  <button 
+                    onClick={handleExportHistoryCSV}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#28a745', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '6px', 
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                   <Download size={18} /> Export Data</button>
+                </div>
+              </div>
+
+              {/* --- TABLE SECTION --- */}
+              <div className="history-scroll-container">
+                <table className="history-table">
+                  <thead>
+                    <tr>
+                      <th>No.</th>
+                      <th>Timestamp</th>
+                      <th>Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {selectedHistory.logs
+                      .filter(log => {
+                        // Filter Logic using ACTIVE state
+                        if (!activeHistoryStart && !activeHistoryEnd) return true;
+                        
+                        const logDate = new Date(log.created_at);
+                        const start = activeHistoryStart ? new Date(activeHistoryStart) : null;
+                        const end = activeHistoryEnd ? new Date(activeHistoryEnd) : null;
+                        
+                        if (start && logDate < start) return false;
+                        if (end && logDate > end) return false;
+                        return true;
+                      })
+                      .map((log, i) => (
+                        <tr key={i}>
+                          <td>{i + 1}</td>
+                          <td>
+                            {new Date(log.created_at).toLocaleString("en-GB", { 
+                              year: 'numeric', month: '2-digit', day: '2-digit', 
+                              hour: '2-digit', minute: '2-digit', second: '2-digit',
+                              hour12: false 
+                            })}
+                          </td>
+                          <td><span className={`status-badge status-${log.status}`}>{log.status}</span></td>
+                        </tr>
+                    ))}
+                    {selectedHistory.logs.length === 0 && (
+                      <tr><td colSpan="3" style={{textAlign:'center', padding:'20px'}}>No history data found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </>

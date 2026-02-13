@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, X, Trash2, Edit, QrCode, History, ChevronLeft, ChevronRight, Save } from "lucide-react"; 
+import { Search, X, Trash2, Edit, QrCode, History, ChevronLeft, ChevronRight, Save, Download } from "lucide-react"; 
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
 import "../styles/parts.css";
@@ -17,8 +17,15 @@ export default function Parts() {
   // Modals State
   const [showQrModal, setShowQrModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false); // State untuk Edit Modal
+  const [showEditModal, setShowEditModal] = useState(false); 
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  
+  // History Filter States
+  const [selectedPartHistory, setSelectedPartHistory] = useState(null);
+  const [historyStart, setHistoryStart] = useState(""); // Input State
+  const [historyEnd, setHistoryEnd] = useState("");     // Input State
+  const [activeHistoryStart, setActiveHistoryStart] = useState(""); // Active Filter State
+  const [activeHistoryEnd, setActiveHistoryEnd] = useState("");     // Active Filter State
   
   // QR & Data State
   const [qrDataUrl, setQrDataUrl] = useState("");
@@ -27,7 +34,6 @@ export default function Parts() {
   const [qrGenerating, setQrGenerating] = useState(false);
   
   const [editingPart, setEditingPart] = useState(null);
-  const [selectedPartHistory, setSelectedPartHistory] = useState(null);
 
   // Form State (Untuk Add & Edit)
   const [formData, setFormData] = useState({
@@ -60,7 +66,7 @@ export default function Parts() {
         return {
           ...item,
           no: index + 1,
-          status: partLogs.length > 0 ? partLogs[0].action : "stop",
+          status: partLogs.length > 0 ? partLogs[0].action : "not working",
         };
       });
 
@@ -100,14 +106,13 @@ export default function Parts() {
 
   // --- HANDLE ADD ---
   const handleAddPart = () => {
-    setFormData({ machine_name: "", name_product: "" }); // Reset form
+    setFormData({ machine_name: "", name_product: "" }); 
     setShowAddModal(true);
   };
 
   const submitAddPart = async (e) => {
     e.preventDefault();
     try {
-      // Asumsi endpoint add adalah /api/addpart (sesuai pola request)
       const response = await fetch("/api/addproduct", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -117,7 +122,7 @@ export default function Parts() {
       if (response.ok) {
         alert("Part added successfully!");
         setShowAddModal(false);
-        fetchInitialData(); // Refresh data
+        fetchInitialData(); 
       } else {
         alert("Failed to add part.");
       }
@@ -144,21 +149,17 @@ export default function Parts() {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              // KUNCI PENCARIAN (Dari data asli sebelum diedit)
               old_machine_name: editingPart.machine_name, 
               old_name_product: editingPart.name_product,
-              
-              // DATA BARU (Dari input form yang diedit user)
               new_machine_name: formData.machine_name, 
               new_name_product: formData.name_product, 
             })
           });
 
-          // --- MISSING CODE ADDED BELOW ---
           if (response.ok) {
             alert("Part updated successfully!");
             setShowEditModal(false);
-            fetchInitialData(); // Refresh table
+            fetchInitialData(); 
           } else {
             alert("Failed to update part.");
           }
@@ -173,7 +174,6 @@ export default function Parts() {
   const handleDelete = async (part) => {
     if (window.confirm(`Delete permanently ${part.name_product} from database?`)) {
       try {
-        // Menggunakan endpoint /api/delete_product sesuai permintaan
         const response = await fetch("/api/delete_product", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
@@ -198,7 +198,7 @@ export default function Parts() {
     }
   };
 
-  // --- OTHER HANDLERS ---
+  // --- HISTORY LOGIC ---
   const handleViewHistory = (part) => {
     const specificHistory = allLogs.filter(
       (log) =>
@@ -211,9 +211,76 @@ export default function Parts() {
       machine: part.machine_name,
       history: specificHistory,
     });
+
+    // Reset filters when opening modal
+    setHistoryStart("");
+    setHistoryEnd("");
+    setActiveHistoryStart("");
+    setActiveHistoryEnd("");
+
     setShowHistoryModal(true);
   };
 
+  // --- HISTORY FILTER HANDLERS ---
+  const handleApplyHistoryFilter = () => {
+    setActiveHistoryStart(historyStart);
+    setActiveHistoryEnd(historyEnd);
+  };
+
+  const handleClearHistoryFilter = () => {
+    setHistoryStart("");
+    setHistoryEnd("");
+    setActiveHistoryStart("");
+    setActiveHistoryEnd("");
+  };
+
+  const handleExportHistoryCSV = () => {
+    // Filter data based on ACTIVE filter state
+    const filteredLogs = selectedPartHistory.history.filter(log => {
+      const logDate = new Date(log.created_at);
+      const start = activeHistoryStart ? new Date(activeHistoryStart) : null;
+      const end = activeHistoryEnd ? new Date(activeHistoryEnd) : null;
+      
+      if (start && logDate < start) return false;
+      if (end && logDate > end) return false;
+      return true;
+    });
+
+    if (filteredLogs.length === 0) {
+      alert("No data to export!");
+      return;
+    }
+
+    // CSV Headers
+    const headers = ["No", "Timestamp", "Action", "Manpower", "Machine", "Product"];
+    
+    // CSV Rows
+    const rows = filteredLogs.map((log, index) => [
+      index + 1,
+      new Date(log.created_at).toLocaleString("en-GB", { hour12: false }).replace(",", ""), // Format Date 24h
+      log.action, // Raw action (start/stop)
+      log.name_manpower,
+      log.machine_name,
+      log.name_product
+    ]);
+
+    // Combine & Download
+    const csvContent = [
+      headers.join(","), 
+      ...rows.map(e => e.join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `History_${selectedPartHistory.nama}_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // --- QR LOGIC ---
   const handleViewQR = async (part) => {
     try {
       setQrGenerating(true);
@@ -313,9 +380,22 @@ export default function Parts() {
                   <td>{part.machine_name}</td>
                   <td>{part.name_product}</td>
                   <td>
-                    <span className={`status-badge status-${part.status.toLowerCase().replace(' ', '-')}`}>
-                      {part.status}
-                    </span>
+                    {(() => {
+                      const rawStatus = part.status ? part.status.toLowerCase() : "";
+                      let displayLabel = "Not Working";
+                      let statusClass = "status-not-working";
+
+                      if (rawStatus === "start" || rawStatus === "working") {
+                        displayLabel = "Working";
+                        statusClass = "status-working";
+                      }
+
+                      return (
+                        <span className={`status-badge ${statusClass}`}>
+                          {displayLabel}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="text-center">
                     <div className="action-buttons">
@@ -325,6 +405,7 @@ export default function Parts() {
                         title="View QR"
                       >
                         <QrCode size={16} />
+                        QR
                       </button>
                       <button 
                         className="action-btn btn-history"
@@ -332,16 +413,16 @@ export default function Parts() {
                         title="History"
                       >
                         <History size={16} />
+                        History
                       </button>
                       
-                      {/* TOMBOL EDIT DITAMBAHKAN */}
                       <button 
                         className="action-btn btn-edit"
                         onClick={() => handleEdit(part)}
                         title="Edit"
-                        // style={{ color: "#F59E0B" }} // Styling inline opsional agar beda warna
                       >
                         <Edit size={16} />
+                        Edit
                       </button>
 
                       <button 
@@ -350,6 +431,7 @@ export default function Parts() {
                         title="Delete"
                       >
                         <Trash2 size={16} />
+                        Delete
                       </button>
                     </div>
                   </td>
@@ -488,26 +570,146 @@ export default function Parts() {
               <button className="modal-close" onClick={() => setShowHistoryModal(false)}><X size={24} /></button>
             </div>
             <div className="modal-body">
-              <table className="history-table">
-                <thead>
-                  <tr>
-                    <th>No.</th>
-                    <th>Log Date</th>
-                    <th>Action</th>
-                    <th>Manpower</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedPartHistory.history.map((log, i) => (
-                    <tr key={i}>
-                      <td>{i + 1}</td>
-                      <td>{new Date(log.created_at).toLocaleString()}</td>
-                      <td><span className={`history-status status-${log.action.toLowerCase()}`}>{log.action}</span></td>
-                      <td>{log.name_manpower}</td>
+              
+              {/* --- FILTER & EXPORT SECTION --- */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '10px', 
+                marginBottom: '15px', 
+                alignItems: 'flex-end',
+                flexWrap: 'wrap',
+                background: '#f8f9fa',
+                padding: '15px',
+                borderRadius: '8px'
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#555' }}>Start Date</label>
+                  <input 
+                    type="datetime-local" 
+                    value={historyStart}
+                    onChange={(e) => setHistoryStart(e.target.value)}
+                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#555' }}>End Date</label>
+                  <input 
+                    type="datetime-local" 
+                    value={historyEnd}
+                    onChange={(e) => setHistoryEnd(e.target.value)}
+                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
+                  />
+                </div>
+                
+                {/* BUTTON GROUP */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    onClick={handleApplyHistoryFilter}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#0b4a8b', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '6px', 
+                      cursor: 'pointer',
+                      fontWeight: '500'
+                    }}
+                  >
+                    Apply Filter
+                  </button>
+                  <button 
+                    onClick={handleClearHistoryFilter}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#fff', 
+                      color: '#333', 
+                      border: '1px solid #ddd', 
+                      borderRadius: '6px', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    Clear
+                  </button>
+                  <button 
+                    onClick={handleExportHistoryCSV}
+                    style={{ 
+                      padding: '8px 16px', 
+                      background: '#28a745', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '6px', 
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <Download size={18} /> Export Data</button>
+                </div>
+              </div>
+
+              {/* --- TABLE SECTION --- */}
+              <div className="history-scroll-container">
+                <table className="history-table">
+                  <thead>
+                    <tr>
+                      <th>No.</th>
+                      <th>Timestamp</th>
+                      <th>Action</th>
+                      <th>Manpower</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {selectedPartHistory.history
+                      .filter(log => {
+                        // Filter Logic
+                        if (!activeHistoryStart && !activeHistoryEnd) return true;
+                        
+                        const logDate = new Date(log.created_at);
+                        const start = activeHistoryStart ? new Date(activeHistoryStart) : null;
+                        const end = activeHistoryEnd ? new Date(activeHistoryEnd) : null;
+                        
+                        if (start && logDate < start) return false;
+                        if (end && logDate > end) return false;
+                        return true;
+                      })
+                      .map((log, i) => (
+                        <tr key={i}>
+                          <td>{i + 1}</td>
+                          <td>
+                            {new Date(log.created_at).toLocaleString("en-GB", { 
+                              year: 'numeric', month: '2-digit', day: '2-digit', 
+                              hour: '2-digit', minute: '2-digit', second: '2-digit',
+                              hour12: false 
+                            })}
+                          </td>
+                          <td>
+                            {(() => {
+                              const rawAction = log.action ? log.action.toLowerCase() : "";
+                              let displayLabel = "Not Working";
+                              let statusClass = "status-not-working";
+
+                              if (rawAction === "start" || rawAction === "working") {
+                                displayLabel = "Working";
+                                statusClass = "status-working";
+                              }
+
+                              return (
+                                <span className={`status-badge ${statusClass}`}>
+                                  {displayLabel}
+                                </span>
+                              );
+                            })()}
+                          </td>
+                          <td>{log.name_manpower}</td>
+                        </tr>
+                    ))}
+                    {selectedPartHistory.history.length === 0 && (
+                      <tr><td colSpan="4" style={{textAlign:'center', padding:'20px'}}>No history data available.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </>

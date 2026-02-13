@@ -6,32 +6,34 @@ import {
 } from "lucide-react";
 import "../styles/dashboard.css";
 
+// --- MUI IMPORTS FOR TIME CLOCK INTEGRATION ---
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
+import dayjs from 'dayjs';
+
 // Component Imports
 import StatCard from "../components/StatCard";
 import DeviceCard from "../components/DeviceCard";
-// TimelineCard dihapus karena kita render manual untuk fitur tooltip
-// import TimelineCard from "../components/TimelineCard"; 
 
 // API Imports
 import { getMachineLogs, getProductList, getManpowerList, getProductLogs, getFilteredMachineLogs, getDeviceList, getMachineStatusEvents } from "../services/api";
 
+// --- STATIC HELPERS (Does not use State) ---
+
 const STATUS_CONFIG = {
-  2.0: { label: "RUNNING", color: "#00BCD4" }, // Cyan/Teal
-  1.0: { label: "STANDBY", color: "#FFC107" }, // Amber/Yellow
-  0: { label: "STOP", color: "#FF5252" },    // Red
-  "NO DATA": { label: "NO DATA", color: "#D3D3D3" } // Grey
+  2.0: { label: "RUNNING", color: "#00BCD4" }, 
+  1.0: { label: "STANDBY", color: "#FFC107" }, 
+  0: { label: "STOP", color: "#FF5252" },    
+  "NO DATA": { label: "NO DATA", color: "#D3D3D3" } 
 };
 
 const getStatusStyle = (val) => {
   const numVal = parseFloat(val);
-  
-  // 1. Try finding exact match
-  // 2. Fallback to 0 (STOP)
-  // 3. Ultimate Safety Net: return a dummy object if everything fails
   return STATUS_CONFIG[numVal] || STATUS_CONFIG[0] || { label: "OFFLINE", color: "#999" }; 
 };
 
-// Helper to get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
   const today = new Date();
   const year = today.getFullYear();
@@ -42,7 +44,9 @@ const getTodayDate = () => {
 
 const formatDateTimeDisplay = (dateString) => {
   if (!dateString) return "";
-  return dateString.replace("T", " ");
+  // Contoh input: 2026-02-13T14:30
+  const [date, time] = dateString.split('T');
+  return `${date} ${time}`;
 };
 
 const getStartOfDayDateTime = () => {
@@ -53,7 +57,6 @@ const getStartOfDayDateTime = () => {
   return `${year}-${month}-${day}T00:00`;
 };
 
-// Helper for DateTime Input (YYYY-MM-DDTHH:mm)
 const getCurrentDateTime = () => {
   const now = new Date();
   const year = now.getFullYear();
@@ -64,7 +67,20 @@ const getCurrentDateTime = () => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
-// --- KOMPONEN TOOLTIP (CUSTOM POP-UP) ---
+const formatTime = (seconds) => {
+  if (seconds < 0) seconds = 0;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
+
+const parseUTC = (dateString) => {
+  if (!dateString) return new Date();
+  return new Date(dateString.endsWith("Z") ? dateString : dateString + "Z");
+};
+
+// --- TOOLTIP COMPONENT ---
 const TimelineTooltip = ({ data, position, visible }) => {
   if (!visible || !data) return null;
 
@@ -87,7 +103,6 @@ const TimelineTooltip = ({ data, position, visible }) => {
       fontSize: '13px',
       color: '#374151'
     }}>
-      {/* Header Status */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #f3f4f6' }}>
         <span style={{ 
           display: 'block', width: '10px', height: '10px', borderRadius: '50%', 
@@ -95,23 +110,16 @@ const TimelineTooltip = ({ data, position, visible }) => {
         }}></span>
         <span style={{ fontWeight: 'bold', color: '#111827' }}>{data.status}</span>
       </div>
-      
-      {/* Waktu */}
       <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', marginBottom: '8px' }}>
          <span style={{ color: '#6b7280', fontWeight: '500' }}>Start:</span> 
-         <span style={{ textAlign: 'right', fontFamily: 'monospace' }}>{data.start.toLocaleString('id-ID')}</span>
-         
+         <span style={{ textAlign: 'right', fontFamily: 'monospace' }}>{data.start.toLocaleString('id-ID',{ hour12: false })}</span>
          <span style={{ color: '#6b7280', fontWeight: '500' }}>End:</span> 
-         <span style={{ textAlign: 'right', fontFamily: 'monospace' }}>{data.end.toLocaleString('id-ID')}</span>
+         <span style={{ textAlign: 'right', fontFamily: 'monospace' }}>{data.end.toLocaleString('id-ID', { hour12: false })}</span>
       </div>
-
-      {/* Durasi */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f9fafb', padding: '6px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>
         <span style={{ fontWeight: '600', color: '#4b5563', fontSize: '12px' }}>Duration:</span>
         <span style={{ fontWeight: 'bold', color: '#2563eb', fontFamily: 'monospace' }}>{data.formattedDuration}</span>
       </div>
-
-      {/* Panah Bawah */}
       <div style={{ 
         position: 'absolute', bottom: '-6px', left: '50%', transform: 'translateX(-50%) rotate(45deg)', 
         width: '12px', height: '12px', backgroundColor: 'white', 
@@ -121,6 +129,7 @@ const TimelineTooltip = ({ data, position, visible }) => {
   );
 };
 
+// --- MAIN COMPONENT ---
 export default function Dashboard() {
   // --- STATE MANAGEMENT ---
   const [loading, setLoading] = useState(true);
@@ -128,43 +137,29 @@ export default function Dashboard() {
 
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-    
+  
+  const [globalProductLogs, setGlobalProductLogs] = useState([]);
+  const [modalData, setModalData] = useState(null);
+
   const [startDate, setStartDate] = useState(getTodayDate());
   const [endDate, setEndDate] = useState(getTodayDate());
 
-  // ACTIVE STATE (Used by the Chart/API
+  const [modalStartDate, setModalStartDate] = useState(getStartOfDayDateTime());
+  const [modalEndDate, setModalEndDate] = useState(getCurrentDateTime());
+
   const [comparisonStartDate, setComparisonStartDate] = useState(getStartOfDayDateTime());
   const [comparisonEndDate, setComparisonEndDate] = useState(getCurrentDateTime());
-  
-  // INPUT STATE (Used by the Input Fields only
   const [tempStartDate, setTempStartDate] = useState(getStartOfDayDateTime());
   const [tempEndDate, setTempEndDate] = useState(getCurrentDateTime());
-
   const [showComparisonFilter, setShowComparisonFilter] = useState(false);
     
   const [counts, setCounts] = useState({ manpower: 0, parts: 0, machines: 0 });
   const [scrollPosition, setScrollPosition] = useState(0);
   const [maxScroll, setMaxScroll] = useState(0);
 
-  // --- NEW STATE FOR TOOLTIP ---
   const [tooltipData, setTooltipData] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
-
-  // Helper: Parse UTC safely
-  const parseUTC = (dateString) => {
-    if (!dateString) return new Date();
-    return new Date(dateString.endsWith("Z") ? dateString : dateString + "Z");
-  };
-
-  // Helper: Format Seconds to HH:MM:SS
-  const formatTime = (seconds) => {
-    if (seconds < 0) seconds = 0;
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
 
   // --- TOOLTIP HANDLERS ---
   const handleMouseEnterSegment = (e, segment) => {
@@ -183,209 +178,227 @@ export default function Dashboard() {
     setIsTooltipVisible(false);
   };
 
-  // Helper: Generate Labels
-  // --- REVISI LOGIKA LABEL: Agar selalu mentok ke ujung waktu yang diminta (NOW) ---
-  const generateDynamicTimeLabels = (timeline) => {
-    let startObj, endObj;
+  // --- LOGIC FUNCTIONS ---
+  const calculateTimelineFromEvents = (events, startObj, endObj) => {
+    let runningTime = 0;
+    let standbyTime = 0;
+    let stopTime = 0;
+    let segments = [];
 
-    if (!timeline || timeline.length === 0) {
-        startObj = new Date(startDate);
-        endObj = new Date(endDate);
-        if (startDate === endDate) endObj.setHours(23, 59, 59, 999);
-    } else {
-        // PERUBAHAN: Jangan filter "NO DATA". Ambil elemen pertama dan terakhir dari array
-        // Fungsi 'calculateTimelineFromEvents' sudah menjamin timeline terisi penuh
-        // dari jam 00:00 (atau start filter) sampai NOW (atau end filter)
-        startObj = timeline[0].start;
-        endObj = timeline[timeline.length - 1].end;
+    const validEvents = events.filter(e => {
+        const t = parseUTC(e.created_at);
+        return t <= endObj; 
+    }).sort((a, b) => parseUTC(a.created_at) - parseUTC(b.created_at));
+
+    if (validEvents.length === 0) {
+        return {
+            timeline: [{
+                start: startObj, 
+                end: endObj,
+                startFmt: startObj.toTimeString().slice(0, 5),
+                endFmt: endObj.toTimeString().slice(0, 5),
+                status: "NO DATA",
+                color: STATUS_CONFIG["NO DATA"].color,
+                duration: (endObj - startObj) / 1000
+            }],
+            summary: { running: formatTime(0), standby: formatTime(0), stop: formatTime(0), total: formatTime(0) }
+        };
     }
 
-    const totalDurationMs = endObj - startObj;
-    const labels = [];
-    const steps = 4; // Menghasilkan 5 label
-    const interval = totalDurationMs / steps;
-
-    for (let i = 0; i <= steps; i++) {
-      const currentMs = startObj.getTime() + (interval * i);
-      const dateObj = new Date(currentMs);
-      
-      const timeStr = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
-      const dateStr = `${dateObj.getDate()} ${dateObj.toLocaleString('default', { month: 'short' })}`;
-
-      if (i === 0 || i === steps) {
-          // Label Ujung (Batas)
-          if (totalDurationMs <= 86400000 && startObj.getDate() === endObj.getDate()) {
-             labels.push(timeStr);
-          } else {
-             labels.push(`${dateStr} ${timeStr}`);
-          }
-      } else {
-          // Label Tengah
-          if (totalDurationMs > 172800000) { 
-             labels.push(`${dateStr} ${timeStr}`);
-          } else {
-             labels.push(timeStr); 
-          }
-      }
+    const firstEventTime = parseUTC(validEvents[0].created_at);
+    if (firstEventTime > startObj) {
+        segments.push({
+            start: startObj,
+            end: firstEventTime,
+            startFmt: startObj.toTimeString().slice(0, 5),
+            endFmt: firstEventTime.toTimeString().slice(0, 5),
+            status: "NO DATA",
+            color: STATUS_CONFIG["NO DATA"].color,
+            duration: (firstEventTime - startObj) / 1000
+        });
     }
-    
-    return labels;
+
+    for (let i = 0; i < validEvents.length; i++) {
+        const currentEvent = validEvents[i];
+        const nextEvent = validEvents[i + 1];
+
+        let startTime = parseUTC(currentEvent.created_at);
+        if (startTime < startObj) startTime = startObj;
+
+        let endTime;
+        let futureSegment = null;
+
+        if (nextEvent) {
+            endTime = parseUTC(nextEvent.created_at);
+        } else {
+            const now = new Date();
+            if (endObj > now) {
+                endTime = now;
+                if (endTime < endObj) {
+                    futureSegment = {
+                        start: endTime,
+                        end: endObj,
+                        startFmt: endTime.toTimeString().slice(0, 5),
+                        endFmt: endObj.toTimeString().slice(0, 5),
+                        status: "NO DATA",
+                        color: STATUS_CONFIG["NO DATA"].color,
+                        duration: (endObj - endTime) / 1000
+                    };
+                }
+            } else {
+                endTime = endObj; 
+            }
+        }
+
+        if (startTime >= endTime) continue;
+
+        const duration = (endTime - startTime) / 1000;
+        const statusVal = parseFloat(currentEvent.machine_status || currentEvent.status);
+        const style = getStatusStyle(statusVal);
+
+        if (statusVal === 2.0) runningTime += duration;
+        else if (statusVal === 1.0) standbyTime += duration;
+        else stopTime += duration;
+
+        segments.push({
+            start: startTime,
+            end: endTime,
+            startFmt: startTime.toTimeString().slice(0, 5),
+            endFmt: endTime.toTimeString().slice(0, 5),
+            status: style.label,
+            color: style.color,
+            duration: duration
+        });
+
+        if (futureSegment) {
+            segments.push(futureSegment);
+        }
+    }
+
+    return {
+        timeline: segments,
+        summary: {
+            running: formatTime(runningTime),
+            standby: formatTime(standbyTime),
+            stop: formatTime(stopTime),
+            total: formatTime(runningTime + standbyTime + stopTime)
+        }
+    };
   };
 
-  const handleScroll = (direction) => {
-    const container = document.querySelector('.device-grid-wrapper');
-    if (!container) return;
-    
-    const scrollAmount = 300;
-    if (direction === 'left') {
-        container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-    } else {
-        container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-    }
-  };
+  const getHistoryRows = (timeline, productLogs, machineId) => {
+    const deviceProductLogs = productLogs
+      .filter(log => log.machine_name === machineId)
+      .sort((a, b) => parseUTC(b.created_at) - parseUTC(a.created_at));
 
-  // --- CORE LOGIC: CALCULATE TIMELINE (OPTIMIZED) ---
-    const calculateTimelineFromEvents = (events, startObj, endObj) => {
-      let runningTime = 0;
-      let standbyTime = 0;
-      let stopTime = 0;
-      let segments = [];
+    return [...timeline]
+      .reverse()
+      .filter(seg => seg.status !== "NO DATA")
+      .map((seg, i) => {
+          let segmentManPower = "-";
+          let segmentPart = "-";
 
-      const validEvents = events.filter(e => {
-          const t = parseUTC(e.created_at);
-          return t <= endObj; 
-      }).sort((a, b) => parseUTC(a.created_at) - parseUTC(b.created_at));
+          if (seg.status !== "STOP") {
+              const activeLogAtTime = deviceProductLogs.find(log => {
+                  const logTime = parseUTC(log.created_at);
+                  return logTime <= seg.start && log.action === "start";
+              });
 
-      if (validEvents.length === 0) {
-          return {
-              timeline: [{
-                  start: startObj, 
-                  end: endObj,
-                  startFmt: startObj.toTimeString().slice(0, 5),
-                  endFmt: endObj.toTimeString().slice(0, 5),
-                  status: "NO DATA",
-                  color: STATUS_CONFIG["NO DATA"].color,
-                  duration: (endObj - startObj) / 1000
-              }],
-              summary: { running: formatTime(0), standby: formatTime(0), stop: formatTime(0), total: formatTime(0) }
-          };
-      }
+              if (activeLogAtTime) {
+                    const stopLogAfterStart = deviceProductLogs.find(log => {
+                      const logTime = parseUTC(log.created_at);
+                      return logTime > parseUTC(activeLogAtTime.created_at) && logTime <= seg.start && log.action === "stop";
+                    });
 
-      // 1. Cek Gap Awal 
-      const firstEventTime = parseUTC(validEvents[0].created_at);
-      if (firstEventTime > startObj) {
-          segments.push({
-              start: startObj,
-              end: firstEventTime,
-              startFmt: startObj.toTimeString().slice(0, 5),
-              endFmt: firstEventTime.toTimeString().slice(0, 5),
-              status: "NO DATA",
-              color: STATUS_CONFIG["NO DATA"].color,
-              duration: (firstEventTime - startObj) / 1000
-          });
-      }
-
-      // 2. Loop Events
-      for (let i = 0; i < validEvents.length; i++) {
-          const currentEvent = validEvents[i];
-          const nextEvent = validEvents[i + 1];
-
-          let startTime = parseUTC(currentEvent.created_at);
-          if (startTime < startObj) startTime = startObj;
-
-          let endTime;
-          let futureSegment = null; // Variable to hold the "NO DATA" part
-
-          if (nextEvent) {
-              endTime = parseUTC(nextEvent.created_at);
-          } else {
-              // This is the last event. Check if we are projecting into the future.
-              const now = new Date();
-              
-              if (endObj > now) {
-                  // If filter ends in the future, cap the known status at NOW
-                  endTime = now;
-                  
-                  // Prepare a grey "NO DATA" segment from NOW to Filter End
-                  // Ensure we don't create negative duration
-                  if (endTime < endObj) {
-                      futureSegment = {
-                          start: endTime,
-                          end: endObj,
-                          startFmt: endTime.toTimeString().slice(0, 5),
-                          endFmt: endObj.toTimeString().slice(0, 5),
-                          status: "NO DATA",
-                          color: STATUS_CONFIG["NO DATA"].color,
-                          duration: (endObj - endTime) / 1000
-                      };
-                  }
-              } else {
-                  // Filter is in the past, behavior as normal
-                  endTime = endObj; 
+                    if (!stopLogAfterStart) {
+                        segmentManPower = activeLogAtTime.name_manpower;
+                        segmentPart = activeLogAtTime.name_product;
+                    }
               }
           }
 
-          if (startTime >= endTime) continue;
+          return {
+              no: i + 1,
+              status: seg.status,
+              from: seg.start.toLocaleString('id-ID', {hour12: false}),
+              until: seg.end.toLocaleString('id-ID', {hour12: false}),
+              duration: formatTime(seg.duration),
+              manPower: segmentManPower,
+              part: segmentPart
+          };
+      });
+  };
 
-          const duration = (endTime - startTime) / 1000;
-          const statusVal = parseFloat(currentEvent.machine_status || currentEvent.status);
-          const style = getStatusStyle(statusVal);
+  // --- HANDLER FUNCTIONS ---
+  const handleApplyModalFilter = () => {
+    if (!selectedDevice) return;
 
-          if (statusVal === 2.0) runningTime += duration;
-          else if (statusVal === 1.0) standbyTime += duration;
-          else stopTime += duration;
+    const startObj = new Date(modalStartDate);
+    const endObj = new Date(modalEndDate);
 
-          segments.push({
-              start: startTime,
-              end: endTime,
-              startFmt: startTime.toTimeString().slice(0, 5),
-              endFmt: endTime.toTimeString().slice(0, 5),
-              status: style.label,
-              color: style.color,
-              duration: duration
-          });
+    const newHistory = calculateTimelineFromEvents(selectedDevice.rawEvents, startObj, endObj);
+    const newRows = getHistoryRows(newHistory.timeline, globalProductLogs, selectedDevice.deviceName);
 
-          // If we created a future "NO DATA" segment, push it now
-          if (futureSegment) {
-              segments.push(futureSegment);
-          }
-      }
+    setModalData(prev => ({
+        ...prev,
+        chartTimeline: newHistory.timeline,
+        statusSummary: newHistory.summary,
+        historyTable: newRows
+    }));
+  };
 
-      return {
-          timeline: segments,
-          summary: {
-              running: formatTime(runningTime),
-              standby: formatTime(standbyTime),
-              stop: formatTime(stopTime),
-              total: formatTime(runningTime + standbyTime + stopTime)
-          }
-      };
-    };
+  const handleExportModalData = () => {
+    if (!modalData) return;
 
-  useEffect(() => {
-    const container = document.querySelector('.device-grid-wrapper');
-    if (!container) return;
+    const headerRows = [
+        ["DETAIL ANALYSIS REPORT"],
+        ["Machine", modalData.name],
+        ["Period Start", modalStartDate.replace("T", " ")],
+        ["Period End", modalEndDate.replace("T", " ")],
+        [],
+        ["VALIDATION & SENSOR DATA"],
+        ["Active Operator", modalData.assignedManPower],
+        ["Active Part", modalData.assignedParts],
+        ["Voltage", modalData.voltage],
+        ["Current", modalData.current],
+        ["Power", modalData.power],
+        ["Energy", modalData.kwh],
+        ["PF", modalData.powerFactor],
+        ["Temperature", modalData.temperature],
+        [],
+        ["HISTORY STATUS TABLE"]
+    ];
+
+    const tableHeader = ["No", "Status", "From", "Until", "Duration", "Man Power", "Part"];
     
-    const handleScrollUpdate = () => {
-        setScrollPosition(container.scrollLeft);
-        setMaxScroll(container.scrollWidth - container.clientWidth);
-    };
-    
-    container.addEventListener('scroll', handleScrollUpdate);
-    window.addEventListener('resize', handleScrollUpdate); 
-    
-    handleScrollUpdate();
-    
-    return () => {
-        container.removeEventListener('scroll', handleScrollUpdate);
-        window.removeEventListener('resize', handleScrollUpdate);
-    };
-  }, [devices]);
+    const tableRows = modalData.historyTable.map(row => [
+        row.no,
+        row.status,
+        row.from.replace(",", "."), 
+        row.until.replace(",", "."),
+        row.duration,
+        row.manPower,
+        row.part
+    ]);
 
-  // --- FETCH DATA ---
+    const csvContent = [
+        ...headerRows.map(e => e.join(",")),
+        tableHeader.join(","),
+        ...tableRows.map(e => e.join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Analysis_${modalData.deviceName}_${modalStartDate}_${modalEndDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const fetchDashboardData = async () => {
     try {
-      // 1. Setup Time Main
       const startObj = new Date(startDate);
       startObj.setHours(0, 0, 0, 0);
 
@@ -393,18 +406,14 @@ export default function Dashboard() {
       const isTodayMain = new Date().toDateString() === endObj.toDateString();
       if (isTodayMain) endObj = new Date(); else endObj.setHours(23, 59, 59, 999);
       
-      // Setup Time untuk Comparison Section
-      // Gunakan waktu spesifik dari input datetime-local
       const compStartObj = new Date(comparisonStartDate);
       const compEndObj = new Date(comparisonEndDate);
       
-      // Validasi sederhana agar tidak error jika invalid date
       if (isNaN(compStartObj.getTime()) || isNaN(compEndObj.getTime())) {
          console.error("Invalid Comparison Date");
          return;
       }
       
-      // 2. Fetch API
       const [machineLogs, manpowerData, partsData, productLogs, registeredDevices] = await Promise.all([
               getMachineLogs(), 
               getManpowerList(),
@@ -412,6 +421,8 @@ export default function Dashboard() {
               getProductLogs(),
               getDeviceList()
             ]);
+
+      setGlobalProductLogs(productLogs);
 
       const timelinePromises = registeredDevices.map(device => 
           getMachineStatusEvents(device.machine_name)
@@ -429,8 +440,6 @@ export default function Dashboard() {
         pivotByMachine[log.machine_id][log.tag_name] = log.tag_value;
       });
 
-
-      // 3. Map Devices
       const mappedDevices = registeredDevices.map((device, index) => {
         const machineId = device.machine_name;
         const currentData = pivotByMachine[machineId] || {};
@@ -441,7 +450,6 @@ export default function Dashboard() {
         const mainTimeline = calculateTimelineFromEvents(deviceEvents, startObj, endObj);
         const compTimeline = calculateTimelineFromEvents(deviceEvents, compStartObj, compEndObj);
 
-        // --- Active Manpower & Part Logic ---
         const deviceProductLogs = productLogs
         .filter(log => log.machine_name === machineId)
         .sort((a, b) => parseUTC(b.created_at) - parseUTC(a.created_at));
@@ -459,52 +467,15 @@ export default function Dashboard() {
             }
         }
         
-
-        // --- HISTORY TABLE LOGIC ---
-        const historyRows = [...mainTimeline.timeline]
-            .reverse()
-            .filter(seg => seg.status !== "NO DATA")
-            .map((seg, i) => {
-                let segmentManPower = "-";
-                let segmentPart = "-";
-
-                if (seg.status !== "STOP") {
-                    const activeLogAtTime = deviceProductLogs.find(log => {
-                        const logTime = parseUTC(log.created_at);
-                        return logTime <= seg.start && log.action === "start";
-                    });
-
-                    if (activeLogAtTime) {
-                          const stopLogAfterStart = deviceProductLogs.find(log => {
-                            const logTime = parseUTC(log.created_at);
-                            return logTime > parseUTC(activeLogAtTime.created_at) && logTime <= seg.start && log.action === "stop";
-                          });
-
-                          if (!stopLogAfterStart) {
-                              segmentManPower = activeLogAtTime.name_manpower;
-                              segmentPart = activeLogAtTime.name_product;
-                          }
-                    }
-                }
-
-                return {
-                    no: i + 1,
-                    status: seg.status,
-                    from: seg.start.toLocaleString('id-ID'), 
-                    until: seg.end.toLocaleString('id-ID'),
-                    duration: formatTime(seg.duration),
-                    manPower: segmentManPower,
-                    part: segmentPart
-                };
-            });
-
+        const historyRows = getHistoryRows(mainTimeline.timeline, productLogs, machineId);
 
         return {
           id: index + 1,
           name: device.machine_name.replace(/_/g, " ").toUpperCase(),
           deviceName: machineId,
           serialNumber: device.serial_number,
-          
+          rawEvents: deviceEvents,
+
           status: currentData["WISE4010:Green_Lamp"] === "1" ? "Active" : "Warning",
           deviceStatus: statusObj.label,
           
@@ -542,16 +513,96 @@ export default function Dashboard() {
     }
   };
 
-  const handleApplyFilter = () => {
-    setComparisonStartDate(tempStartDate);
-    setComparisonEndDate(tempEndDate);
-  };
-
   useEffect(() => {
     fetchDashboardData();
     const interval = setInterval(fetchDashboardData, 5000);
     return () => clearInterval(interval);
   }, [startDate, endDate, comparisonStartDate, comparisonEndDate]);
+
+  const handleViewDetails = (device) => {
+    setSelectedDevice(device);
+    
+    const start = getStartOfDayDateTime();
+    const end = getCurrentDateTime();
+    setModalStartDate(start);
+    setModalEndDate(end);
+
+    const history = calculateTimelineFromEvents(device.rawEvents, new Date(start), new Date(end));
+    const historyRows = getHistoryRows(history.timeline, globalProductLogs, device.deviceName);
+
+    setModalData({
+        ...device,
+        chartTimeline: history.timeline,
+        statusSummary: history.summary,
+        historyTable: historyRows
+    });
+
+    setShowDetailModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowDetailModal(false);
+    setSelectedDevice(null);
+    setModalData(null);
+  };
+
+  const handleApplyFilter = () => {
+    setComparisonStartDate(tempStartDate);
+    setComparisonEndDate(tempEndDate);
+  };
+
+  const handleScroll = (direction) => {
+    const container = document.querySelector('.device-grid-wrapper');
+    if (!container) return;
+    
+    const scrollAmount = 300;
+    if (direction === 'left') {
+        container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+    } else {
+        container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  const generateDynamicTimeLabels = (timeline) => {
+    let startObj, endObj;
+
+    if (!timeline || timeline.length === 0) {
+        startObj = new Date(startDate);
+        endObj = new Date(endDate);
+        if (startDate === endDate) endObj.setHours(23, 59, 59, 999);
+    } else {
+        startObj = timeline[0].start;
+        endObj = timeline[timeline.length - 1].end;
+    }
+
+    const totalDurationMs = endObj - startObj;
+    const labels = [];
+    const steps = 4;
+    const interval = totalDurationMs / steps;
+
+    for (let i = 0; i <= steps; i++) {
+      const currentMs = startObj.getTime() + (interval * i);
+      const dateObj = new Date(currentMs);
+      
+      const timeStr = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+      const dateStr = `${dateObj.getDate()} ${dateObj.toLocaleString('default', { month: 'short' })}`;
+
+      if (i === 0 || i === steps) {
+          if (totalDurationMs <= 86400000 && startObj.getDate() === endObj.getDate()) {
+             labels.push(timeStr);
+          } else {
+             labels.push(`${dateStr} ${timeStr}`);
+          }
+      } else {
+          if (totalDurationMs > 172800000) { 
+             labels.push(`${dateStr} ${timeStr}`);
+          } else {
+             labels.push(timeStr); 
+          }
+      }
+    }
+    return labels;
+  };
 
   const stats = [
     { label: "Machine", count: counts.machines, icon: <Monitor size={32} /> },
@@ -560,53 +611,8 @@ export default function Dashboard() {
     { label: "Work Order", count: 6, icon: <ClipboardList size={32} /> },
   ];
 
-  const handleViewDetails = (device) => {
-    setSelectedDevice(device);
-    setShowDetailModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowDetailModal(false);
-    setSelectedDevice(null);
-  };
-
-  const handleExportData = async () => {
-    if (!selectedDevice) return;
-    try {
-      const machineId = selectedDevice.deviceName || "machine_01";
-      const logs = await getFilteredMachineLogs(startDate, endDate, machineId);
-      if (!logs || logs.length === 0) {
-        alert("No data found for the selected date range and machine.");
-        return;
-      }
-      const csvHeaders = ["created_at", "machine_id", "tag_name", "tag_value", "recorded_at"];
-      const csvRows = logs.map(log => [
-        log.created_at,
-        log.machine_id,
-        log.tag_name,
-        log.tag_value,
-        log.recorded_at
-      ]);
-      const csvContent = [csvHeaders, ...csvRows]
-        .map(row => row.map(field => `"${field}"`).join(",")) 
-        .join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute("download", `machine_logs_${machineId}_${startDate}_to_${endDate}.csv`);
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error("Export Error:", error);
-    }
-  };
-
   return (
-    <>
-      {/* --- RENDER CUSTOM TOOLTIP --- */}
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
       <TimelineTooltip 
         visible={isTooltipVisible} 
         data={tooltipData} 
@@ -660,38 +666,49 @@ export default function Dashboard() {
             {showComparisonFilter && (
             <div className="comparison-filter-bar">
               <div className="filter-group">
-                <label>Start Date & Time</label>
-                {/* UBAH ke datetime-local dan gunakan state TEMP */}
-                <input 
-                  type="datetime-local" 
-                  value={tempStartDate} 
-                  onChange={(e) => setTempStartDate(e.target.value)} 
+                <DateTimePicker 
+                  label="Start Date & Time"
+                  value={dayjs(tempStartDate)}
+                  onChange={(newValue) => setTempStartDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                  ampm={false}
+                  format="DD/MM/YYYY HH:mm"
+                  viewRenderers={{
+                    hours: renderTimeViewClock,
+                    minutes: renderTimeViewClock,
+                    seconds: renderTimeViewClock,
+                  }}
+                  slotProps={{ textField: { size: "medium", style: { backgroundColor: 'white' } } }}
                 />
               </div>
               <div className="filter-group">
-                <label>End Date & Time</label>
-                {/* UBAH ke datetime-local dan gunakan state TEMP */}
-                <input 
-                  type="datetime-local" 
-                  value={tempEndDate} 
-                  onChange={(e) => setTempEndDate(e.target.value)} 
+                <DateTimePicker 
+                  label="End Date & Time"
+                  value={dayjs(tempEndDate)}
+                  onChange={(newValue) => setTempEndDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                  ampm={false}
+                  format="DD/MM/YYYY HH:mm"
+                  viewRenderers={{
+                    hours: renderTimeViewClock,
+                    minutes: renderTimeViewClock,
+                    seconds: renderTimeViewClock,
+                  }}
+                  slotProps={{ textField: { size: "medium", style: { backgroundColor: 'white' } } }}
                 />
               </div>
               
-              {/* TOMBOL APPLY FILTER */}
               <button 
                 className="btn-apply-filter" 
                 onClick={handleApplyFilter}
                 style={{ 
                   marginLeft: '10px', 
-                  padding: '8px 16px', 
+                  padding: '12px 16px', 
                   backgroundColor: '#0b4a8b', 
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '4px',
                   cursor: 'pointer',
                   fontWeight: 'bold',
-                  height: '38px', // Biar align sama input
+                  height: '38px',
                   alignSelf: 'flex-end'
                 }}
               >
@@ -700,7 +717,6 @@ export default function Dashboard() {
             </div>
           )}
 
-        {/* --- REVISI COMPARISON CONTAINER (Update Visual) --- */}
         <div className="comparison-container" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {devices.map((device) => (
              <div 
@@ -715,7 +731,6 @@ export default function Dashboard() {
                   borderLeft: '5px solid #00BCD4' 
                 }}
              >
-                {/* --- KOLOM KIRI: Identitas Mesin --- */}
                 <div style={{ width: '180px', flexShrink: 0, paddingRight: '20px' }}>
                   <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem', fontWeight: 'bold', color: '#333' }}>
                     {device.name}
@@ -733,47 +748,34 @@ export default function Dashboard() {
                   </span>
                 </div>
 
-                {/* --- KOLOM KANAN: Statistik & Timeline --- */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  
-                  {/* 1. Baris Summary Statistik */}
                   <div style={{ display: 'flex', gap: '24px', marginBottom: '6px', fontSize: '11px', fontWeight: '700' }}>
-                    
-                    {/* RUN (Warna Teks Waktu Mengikuti Label) */}
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                        <span style={{ color: STATUS_CONFIG[2.0].color, marginBottom: '2px' }}>● RUN</span>
                        <span style={{ fontFamily: 'monospace', fontSize: '12px', color: STATUS_CONFIG[2.0].color }}>
                           {device.comparisonStatusSummary.running}
                        </span>
                     </div>
-
-                    {/* STANDBY (Warna Teks Waktu Mengikuti Label) */}
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                        <span style={{ color: STATUS_CONFIG[1.0].color, marginBottom: '2px' }}>● STAND BY</span>
                        <span style={{ fontFamily: 'monospace', fontSize: '12px', color: STATUS_CONFIG[1.0].color }}>
                           {device.comparisonStatusSummary.standby}
                        </span>
                     </div>
-
-                    {/* STOP (Warna Teks Waktu Mengikuti Label) */}
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                        <span style={{ color: STATUS_CONFIG[0.0].color, marginBottom: '2px' }}>● STOP</span>
                        <span style={{ fontFamily: 'monospace', fontSize: '12px', color: STATUS_CONFIG[0.0].color }}>
                           {device.comparisonStatusSummary.stop}
                        </span>
                     </div>
-
-                    {/* TOTAL (Tetap Hitam/Abu Gelap untuk Pembeda) */}
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                        <span style={{ color: '#757575', marginBottom: '2px' }}>● TOTAL</span>
                        <span style={{ fontFamily: 'monospace', fontSize: '12px', color: '#757575' }}>
                           {device.comparisonStatusSummary.total}
                        </span>
                     </div>
-
                   </div>
 
-                  {/* 2. Timeline Bar Visual (Lebih Kotak) */}
                   <div style={{ 
                     display: 'flex', 
                     width: '100%', 
@@ -791,7 +793,6 @@ export default function Dashboard() {
                               flex: segment.duration,
                               position: 'relative',
                               opacity: 1
-                              // opacity: segment.status === 'NO DATA' ? 0 : 1 
                           }}
                           onMouseEnter={(e) => handleMouseEnterSegment(e, segment)}
                           onMouseLeave={handleMouseLeaveSegment}
@@ -799,13 +800,11 @@ export default function Dashboard() {
                       ))}
                   </div>
 
-                  {/* 3. Label Waktu (Warna Hitam) */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '10px', color: '#000000', fontWeight: '500' }}>
                      {generateDynamicTimeLabels(device.comparisonChartTimeline).map((time, idx) => (
                         <span key={idx}>{time}</span>
                      ))}
                   </div>
-
                 </div>
              </div>
           ))}
@@ -813,21 +812,55 @@ export default function Dashboard() {
         </div>
       )}
 
-      {showDetailModal && selectedDevice && (
+      {showDetailModal && modalData && (
         <>
           <div className="modal-overlay" onClick={handleCloseModal}></div>
           <div className="modal modal-large">
             <div className="modal-header">
-              <h2>Detail Analysis: {selectedDevice.deviceName}</h2>
+              <h2>Detail Analysis: {modalData.deviceName}</h2>
               <button className="modal-close" onClick={handleCloseModal}><X size={24} /></button>
             </div>
 
             <div className="modal-body">
               <div className="history-section">
-                <div className="date-range-container">
-                  <div className="date-input-group"><label>Start</label><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></div>
-                  <div className="date-input-group"><label>End</label><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></div>
-                  <button className="btn-export" onClick={handleExportData}><Download size={18} /> Export Data</button>
+                <div className="date-range-container" style={{display:'flex', gap:'10px', alignItems:'center'}}>
+                  <div className="date-input-group">
+                    <DateTimePicker 
+                      label="Start Time"
+                      value={dayjs(modalStartDate)}
+                      onChange={(newValue) => setModalStartDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                      ampm={false}
+                      format="DD/MM/YYYY HH:mm"
+                      viewRenderers={{
+                        hours: renderTimeViewClock,
+                        minutes: renderTimeViewClock,
+                        seconds: renderTimeViewClock,
+                      }}
+                      slotProps={{ textField: { size: 'small', style: { width: '220px', backgroundColor: 'white' } } }}
+                    />
+                  </div>
+                  <div className="date-input-group">
+                    <DateTimePicker 
+                      label="End Time"
+                      value={dayjs(modalEndDate)}
+                      onChange={(newValue) => setModalEndDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                      ampm={false}
+                      format="DD/MM/YYYY HH:mm"
+                      viewRenderers={{
+                        hours: renderTimeViewClock,
+                        minutes: renderTimeViewClock,
+                        seconds: renderTimeViewClock,
+                      }}
+                      slotProps={{ textField: { size: 'small', style: { width: '220px', backgroundColor: 'white' } } }}
+                    />
+                  </div>
+                  <button className="btn-apply" 
+                  onClick={handleApplyModalFilter} 
+                  style={{ background: '#0b4a8b', color:'white', fontWeight: 'bold', border:'none', padding:'8px 16px', borderRadius:'4px', cursor:'pointer', marginRight:'10px', height: '40px' }}>
+                    Apply Filter
+                  </button>
+                  <button className="btn-export" onClick={handleExportModalData} style={{ background: '#28a745', color:'white', border:'none', padding:'8px 16px', borderRadius:'4px', cursor:'pointer', marginRight:'10px', height: '40px' }}>
+                    <Download size={18} /> Export Data</button>
                 </div>
               </div>
 
@@ -836,21 +869,21 @@ export default function Dashboard() {
                   <h3>Operation Timeline</h3>
                 <div className="status-summary">
                   <div className="status-box" style={{color: STATUS_CONFIG[2.0].color}}>
-                    <span className="status-label">● RUNNING</span><span className="status-time">{selectedDevice.statusSummary.running}</span>
+                    <span className="status-label">● RUNNING</span><span className="status-time">{modalData.statusSummary.running}</span>
                   </div>
                   <div className="status-box" style={{color: STATUS_CONFIG[1.0].color}}>
-                    <span className="status-label">● STANDBY</span><span className="status-time">{selectedDevice.statusSummary.standby}</span>
+                    <span className="status-label">● STANDBY</span><span className="status-time">{modalData.statusSummary.standby}</span>
                   </div>
                   <div className="status-box" style={{color: STATUS_CONFIG[0.0].color}}>
-                    <span className="status-label">● STOP</span><span className="status-time">{selectedDevice.statusSummary.stop}</span>
+                    <span className="status-label">● STOP</span><span className="status-time">{modalData.statusSummary.stop}</span>
                   </div>
                   <div className="status-box status-total">
-                    <span className="status-label">● TOTAL</span><span className="status-time">{selectedDevice.statusSummary.total}</span>
+                    <span className="status-label">● TOTAL</span><span className="status-time">{modalData.statusSummary.total}</span>
                   </div>
                 </div>
                   <div className="timeline-chart">
                   <div className="timeline-bar" style={{ display: 'flex', width: '100%' }}>
-                    {selectedDevice.chartTimeline.map((segment, idx) => (
+                    {modalData.chartTimeline.map((segment, idx) => (
                       <div
                         key={idx}
                         className="timeline-segment"
@@ -864,7 +897,7 @@ export default function Dashboard() {
                     ))}
                   </div>
                   <div className="timeline-labels">
-                    {generateDynamicTimeLabels(selectedDevice.chartTimeline).map((time, idx) => (
+                    {generateDynamicTimeLabels(modalData.chartTimeline).map((time, idx) => (
                       <span key={idx}>{time}</span>
                     ))}
                   </div>
@@ -873,41 +906,48 @@ export default function Dashboard() {
 
                 <div className="detail-section">
                    <h3>Validation & Sensor Data</h3>
-                   <div className="detail-item-simple"><span className="label"><SquareUser size={14} /> Active Operator</span><span className="value">{selectedDevice.assignedManPower}</span></div>
-                   <div className="detail-item-simple"><span className="label"><Bolt size={14} />Active Part</span><span className="value" style={{fontWeight:'bold', color: '#007bff'}}>{selectedDevice.assignedParts}</span></div>
+                   <div className="detail-item-simple"><span className="label"><SquareUser size={14} /> Active Operator</span><span className="value">{modalData.assignedManPower}</span></div>
+                   <div className="detail-item-simple"><span className="label"><Bolt size={14} />Active Part</span><span className="value" style={{fontWeight:'bold', color: '#007bff'}}>{modalData.assignedParts}</span></div>
 
                    <h4 style={{ marginTop: '20px', color: '#0b4a8b' }}>Power Meter Data</h4>
                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div className="detail-item-simple"><span className="label"><Zap size={14}/> Voltage</span><span className="value">{selectedDevice.voltage}</span></div>
-                    <div className="detail-item-simple"><span className="label"><Battery size={14}/> Current</span><span className="value">{selectedDevice.current}</span></div>
-                    <div className="detail-item-simple"><span className="label"><TrendingUp size={14}/> Power</span><span className="value">{selectedDevice.power}</span></div>
-                    <div className="detail-item-simple"><span className="label"><Zap size={14}/> Energy</span><span className="value">{selectedDevice.kwh}</span></div>
-                    <div className="detail-item-simple"><span className="label"><Activity size={14}/> PF</span><span className="value">{selectedDevice.powerFactor}</span></div>
-                    <div className="detail-item-simple"><span className="label"><Thermometer size={14}/> Temp</span><span className="value">{selectedDevice.temperature}</span></div>
+                    <div className="detail-item-simple"><span className="label"><Zap size={14}/> Voltage</span><span className="value">{modalData.voltage}</span></div>
+                    <div className="detail-item-simple"><span className="label"><Battery size={14}/> Current</span><span className="value">{modalData.current}</span></div>
+                    <div className="detail-item-simple"><span className="label"><TrendingUp size={14}/> Power</span><span className="value">{modalData.power}</span></div>
+                    <div className="detail-item-simple"><span className="label"><Zap size={14}/> Energy</span><span className="value">{modalData.kwh}</span></div>
+                    <div className="detail-item-simple"><span className="label"><Activity size={14}/> PF</span><span className="value">{modalData.powerFactor}</span></div>
+                    <div className="detail-item-simple"><span className="label"><Thermometer size={14}/> Temp</span><span className="value">{modalData.temperature}</span></div>
                   </div>
                 </div>
               </div>
-              
-              <div className="history-table-section">
-                <h3>Tabel History Status</h3>
-                <table className="history-table">
-                  <thead><tr><th>No</th><th>Status</th><th>From</th><th>Until</th><th>Duration</th><th>Man Power</th><th>Part</th></tr></thead>
-                  <tbody>
-                    {selectedDevice.historyTable.map((row, i) => (
-                      <tr key={i}>
-                        <td>{row.no}</td>
-                        <td><span className={`table-status-badge ${row.status === "RUNNING" ? "status-active" : "status-stop"}`}>{row.status}</span></td>
-                        <td>{row.from}</td><td>{row.until}</td><td>{row.duration}</td><td>{row.manPower}</td><td>{row.part}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                <div className="history-container" style={{ marginTop: '30px', background: 'white', borderRadius: '8px', border: '1px solid #e0e0e0', overflow: 'hidden' }}>
+                  <h3 style={{ padding: '15px 20px', margin: 0, borderBottom: '1px solid #eee', background: 'white', fontSize: '1.1rem', fontWeight: '600', color: '#333' }}>
+                    History Status Table
+                  </h3>
+                  <div className="history-table-scroll-area" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                    <table className="history-table">
+                      <thead>
+                        <tr>
+                          <th>No</th><th>Status</th><th>From</th><th>Until</th><th>Duration</th><th>Man Power</th><th>Part</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {modalData.historyTable.map((row, i) => (
+                          <tr key={i}>
+                            <td>{row.no}</td>
+                            <td><span className={`table-status-badge ${row.status === "RUNNING" ? "status-active" : "status-stop"}`}>{row.status}</span></td>
+                            <td>{row.from}</td><td>{row.until}</td><td>{row.duration}</td><td>{row.manPower}</td><td>{row.part}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
             </div>
             <div className="modal-footer"><button className="btn-cancel" onClick={handleCloseModal}>Close</button></div>
           </div>
         </>
       )}
-    </>
+    </LocalizationProvider>
   );
 }

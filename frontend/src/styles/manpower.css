@@ -90,25 +90,36 @@
 
 .manpower-table {
   width: 100%;
-  border-collapse: collapse;
-  min-width: 800px;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: white;
+  font-size: 0.9rem;
 }
 
-.manpower-table thead {
+/* .manpower-table thead {
   background: #0b4a8b;
   color: white;
-}
+} */
 
 .manpower-table th {
-  padding: 15px;
+  position: sticky; 
+  top: 0;       
+  z-index: 12;      
+  background-color: #0b4a8b; 
+  color: white;
+  padding: 14px 12px;
   text-align: left;
+  border-bottom: none;
   font-weight: 600;
-  font-size: 0.9rem;
+  box-shadow: 0 1px 0 #0b4a8b;
 }
 
 .manpower-table td {
   padding: 15px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid #eee;
+  background: white;
+  color: #333;
+  z-index: 1;
 }
 
 .manpower-table tbody tr:hover {
@@ -473,3 +484,60 @@
     max-width: none;
   }
 }
+
+/* ===== HISTORY TABLE MODAL STYLES ===== */
+
+/* 1. Container Pembungkus Scroll */
+.history-scroll-container {
+  max-height: 400px;       /* Batas tinggi tabel */
+  overflow-y: auto;        /* Munculkan scrollbar jika konten panjang */
+  border: 1px solid #ddd;  /* Garis pinggir biar rapi */
+  border-radius: 8px;      /* Sudut tumpul */
+  background: white;
+}
+
+/* 2. Style Tabel Dasar */
+.history-table {
+  width: 100%;
+  border-collapse: separate; /* Wajib separate untuk sticky header */
+  border-spacing: 0;
+  font-size: 0.9rem;
+}
+
+/* 3. Sticky Header (Kunci Utama) */
+.history-table th {
+  position: sticky;
+  top: 0;             /* Tempel di atas container */
+  z-index: 10;        /* Pastikan di atas layer data */
+  background-color: #0b4a8b; /* Warna solid (Wajib, biar data ga tembus pandang) */
+  color: white;
+  padding: 14px 15px;
+  text-align: left;
+  font-weight: 600;
+  box-shadow: 0 1px 0 #0b4a8b; /* Menutup celah pixel putih */
+}
+
+/* 4. Style Baris Data */
+.history-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #eee;
+  color: #333;
+  background: white; /* Warna background solid */
+  z-index: 1;
+}
+
+/* Hover Effect */
+.history-table tbody tr:hover td {
+  background-color: #f0f7ff;
+}
+
+/* Status Badge di History (Opsional, merapikan badge) */
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.status-badge.status-login { background: #e8f5e9; color: #2e7d32; }
+.status-badge.status-logout { background: #ffebee; color: #c62828; }
