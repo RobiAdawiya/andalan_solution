@@ -243,8 +243,12 @@ html, body {
   color: #333;       /* Warna teks gelap standar */
   font-weight: 500;
   padding: 0 15px;
-  cursor: default;   /* Memastikan mouse tetap panah biasa, bukan jari */
-  user-select: none; /* Mencegah teks terpilih saat tidak sengaja diklik */
+  cursor: default;   
+  user-select: none; 
+  font-variant-numeric: tabular-nums; 
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  min-width: 200px; 
+  text-align: right;
 }
 
 .user-menu-overlay {

@@ -274,29 +274,34 @@
 
 .history-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   background: white;
   font-size: 0.9rem;
 }
 
-.history-table thead {
-  background: #673AB7;
-  color: white;
-}
-
 .history-table th {
+  position: sticky;       
+  top: 0;                 
+  z-index: 100;           
+  background-color: #0277BD; 
+  color: white;
   padding: 14px 12px;
   text-align: left;
-  border: 1px solid #ddd;
+  border-bottom: 2px solid #ddd;
   font-size: 0.9rem;
   font-weight: 600;
+  box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.2);
 }
 
 .history-table td {
   padding: 12px;
   text-align: left;
-  border: 1px solid #ddd;
-  font-size: 0.85rem;
+  border-bottom: 1px solid #eee; 
+}
+
+.history-table tbody tr:hover {
+  background-color: #f5f5f5;
 }
 
 .date-range-container {
@@ -432,7 +437,7 @@
     grid-template-columns: 1fr;
     gap: 10px;
   }
-  
+
   .device-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -485,8 +490,8 @@
   transform: translateY(-5px);
   min-width: 0; /* Hapus min-width fixed */
   max-width: none; /* Hapus max-width fixed */
-  flex: 0 0 calc(25% - 15px); 
-  flex-shrink: 0; 
+  flex: 0 0 calc(25% - 15px);
+  flex-shrink: 0;
 }
 
 .device-card-dashboard:hover {
@@ -940,9 +945,9 @@
   flex: 1; /* Membagi ruang sama rata */
   text-align: center; /* Default tengah */
   white-space: nowrap; /* Mencegah teks turun ke bawah */
-  
+
   /* Trik posisi agar pas di titik-titik tick mark */
-  position: relative; 
+  position: relative;
 }
 
 /* Label PERTAMA: Rata Kiri */
@@ -976,7 +981,7 @@
 }
 
 /* History Table */
-.history-table-section {
+/* .history-table-section {
   margin-top: 25px;
 }
 
@@ -984,9 +989,9 @@
   font-size: 1rem;
   margin-bottom: 15px;
   color: #333;
-}
+} */
 
-.history-table {
+/* .history-table {
   width: 100%;
   border-collapse: collapse;
   background: white;
@@ -997,13 +1002,20 @@
   color: white;
 }
 
-.history-table th,
 .history-table td {
   padding: 12px;
   text-align: left;
   border: 1px solid #ddd;
   font-size: 0.85rem;
 }
+
+/* .table-status-badge {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  display: inline-block;
+} */ 
 
 .table-status-badge {
   padding: 4px 12px;
@@ -1029,7 +1041,7 @@
 }
 
 .modal {
-  position: fixed;
+  position: sticky;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -1420,7 +1432,7 @@
   overflow-y: hidden;
   scroll-behavior: smooth;
   padding: 10px 0;
-  
+
   /* Hide scrollbar */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
@@ -1436,18 +1448,18 @@
   top: 40%;
   transform: translateY(-50%);
   z-index: 10;
-  
+
   background: rgba(11, 74, 139, 0.9);
   color: white;
   border: none;
   border-radius: 50%;
   width: 40px;
   height: 40px;
-  
+
   display: flex;
   align-items: center;
   justify-content: center;
-  
+
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   transition: all 0.3s ease;
@@ -1491,18 +1503,18 @@
   .scroll-button {
     display: none;
   }
-  
+
   .device-grid-wrapper {
     overflow-x: auto;
     scrollbar-width: thin;
     -ms-overflow-style: auto;
   }
-  
+
   .device-grid-wrapper::-webkit-scrollbar {
     display: block;
     height: 6px;
   }
-  
+
   .device-grid-wrapper::-webkit-scrollbar-thumb {
     background: #0b4a8b;
     border-radius: 3px;

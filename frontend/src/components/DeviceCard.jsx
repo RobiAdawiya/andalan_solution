@@ -1,5 +1,5 @@
 import React from "react";
-import { Activity, Zap, Battery, TrendingUp, Thermometer } from "lucide-react";
+import { Activity, Zap, Battery, TrendingUp, Thermometer, SquareUser,  Bolt} from "lucide-react";
 
 const getBadgeClass = (status) => {
   if (status === "RUNNING") return "status-running"; // Hijau/Biru
@@ -18,9 +18,6 @@ export default function DeviceCard({ device, onViewDetails }) {
       </div>
 
       <div className="device-card-info">
-        {/* <div className="info-row">
-          <Activity size={16} /> <span>Uptime: {device.uptime}</span>
-        </div> */}
         <div className="info-row">
           <Zap size={16} /> <span>Voltage: {device.voltage}</span>
         </div>
@@ -32,6 +29,12 @@ export default function DeviceCard({ device, onViewDetails }) {
         </div>
         <div className="info-row">
           <Thermometer size={16} /> <span>Temp: {device.temperature}</span>
+        </div>
+        <div className="info-row">
+          <SquareUser size={16} /> <span>Operator: {device.assignedManPower}</span>
+        </div>
+        <div className="info-row">
+          <Bolt size={16} /> <span>Part: {device.assignedParts}</span>
         </div>
       </div>
 

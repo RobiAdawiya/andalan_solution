@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { 
   Monitor, Users, Wrench, ClipboardList, Calendar, 
   Activity, X, Download, Zap, Thermometer, Battery, TrendingUp, 
-  ChevronLeft, ChevronRight 
+  ChevronLeft, ChevronRight, SquareUser, Bolt
 } from "lucide-react";
 import "../styles/dashboard.css";
 
@@ -294,10 +294,35 @@ export default function Dashboard() {
           if (startTime < startObj) startTime = startObj;
 
           let endTime;
+          let futureSegment = null; // Variable to hold the "NO DATA" part
+
           if (nextEvent) {
               endTime = parseUTC(nextEvent.created_at);
           } else {
-              endTime = endObj; 
+              // This is the last event. Check if we are projecting into the future.
+              const now = new Date();
+              
+              if (endObj > now) {
+                  // If filter ends in the future, cap the known status at NOW
+                  endTime = now;
+                  
+                  // Prepare a grey "NO DATA" segment from NOW to Filter End
+                  // Ensure we don't create negative duration
+                  if (endTime < endObj) {
+                      futureSegment = {
+                          start: endTime,
+                          end: endObj,
+                          startFmt: endTime.toTimeString().slice(0, 5),
+                          endFmt: endObj.toTimeString().slice(0, 5),
+                          status: "NO DATA",
+                          color: STATUS_CONFIG["NO DATA"].color,
+                          duration: (endObj - endTime) / 1000
+                      };
+                  }
+              } else {
+                  // Filter is in the past, behavior as normal
+                  endTime = endObj; 
+              }
           }
 
           if (startTime >= endTime) continue;
@@ -319,6 +344,11 @@ export default function Dashboard() {
               color: style.color,
               duration: duration
           });
+
+          // If we created a future "NO DATA" segment, push it now
+          if (futureSegment) {
+              segments.push(futureSegment);
+          }
       }
 
       return {
@@ -843,12 +873,8 @@ export default function Dashboard() {
 
                 <div className="detail-section">
                    <h3>Validation & Sensor Data</h3>
-                   <div className="detail-item-simple">
-                      <span className="label">Active Operator</span><span className="value">{selectedDevice.assignedManPower}</span>
-                   </div>
-                   <div className="detail-item-simple">
-                      <span className="label">Active Part</span><span className="value" style={{fontWeight:'bold', color: '#007bff'}}>{selectedDevice.assignedParts}</span>
-                   </div>
+                   <div className="detail-item-simple"><span className="label"><SquareUser size={14} /> Active Operator</span><span className="value">{selectedDevice.assignedManPower}</span></div>
+                   <div className="detail-item-simple"><span className="label"><Bolt size={14} />Active Part</span><span className="value" style={{fontWeight:'bold', color: '#007bff'}}>{selectedDevice.assignedParts}</span></div>
 
                    <h4 style={{ marginTop: '20px', color: '#0b4a8b' }}>Power Meter Data</h4>
                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
