@@ -422,7 +422,7 @@ export default function Dashboard() {
               getProductList(),
               getProductLogs(),
               getDeviceList()
-            ]);
+            ]);  
 
       setGlobalProductLogs(productLogs);
 
