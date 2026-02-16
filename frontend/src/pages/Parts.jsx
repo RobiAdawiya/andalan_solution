@@ -4,6 +4,13 @@ import QRCode from "qrcode";
 import jsPDF from "jspdf";
 import "../styles/parts.css";
 
+// --- MUI IMPORTS FOR DATE PICKER & TIME CLOCK ---
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
+import dayjs from 'dayjs';
+
 // API Imports
 import { getProductList, getProductLogs } from "../services/api";
 
@@ -274,7 +281,15 @@ export default function Parts() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `History_${selectedPartHistory.nama}_${new Date().toISOString().slice(0,10)}.csv`);
+    const fileNameStart = activeHistoryStart 
+      ? dayjs(activeHistoryStart).format('YYYY-MM-DD_HH-mm') 
+      : 'Start-part-date';
+      
+    const fileNameEnd = activeHistoryEnd 
+      ? dayjs(activeHistoryEnd).format('YYYY-MM-DD_HH-mm') 
+      : dayjs().format('YYYY-MM-DD_HH-mm'); 
+
+    link.setAttribute("download", `History_${selectedPartHistory.nama}_${fileNameStart}_to_${fileNameEnd}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -313,7 +328,7 @@ export default function Parts() {
   }
 
   return (
-    <div>
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
       <div className="page-header">
         <h1 className="page-title">PARTS</h1>
 
@@ -576,28 +591,40 @@ export default function Parts() {
                 display: 'flex', 
                 gap: '10px', 
                 marginBottom: '15px', 
-                alignItems: 'flex-end',
+                alignItems: 'center', // Adjusted for MUI alignment
                 flexWrap: 'wrap',
                 background: '#f8f9fa',
                 padding: '15px',
                 borderRadius: '8px'
               }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#555' }}>Start Date</label>
-                  <input 
-                    type="datetime-local" 
-                    value={historyStart}
-                    onChange={(e) => setHistoryStart(e.target.value)}
-                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
+                <div className="filter-group">
+                  <DateTimePicker 
+                    label="START DATE & TIME"
+                    value={historyStart ? dayjs(historyStart) : null}
+                    onChange={(newValue) => setHistoryStart(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                    ampm={false}
+                    format="DD/MM/YYYY HH:mm"
+                    viewRenderers={{
+                      hours: renderTimeViewClock,
+                      minutes: renderTimeViewClock,
+                      seconds: renderTimeViewClock,
+                    }}
+                    slotProps={{ textField: { size: 'medium', style: { backgroundColor: 'white', width: '220px' } } }}
                   />
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#555' }}>End Date</label>
-                  <input 
-                    type="datetime-local" 
-                    value={historyEnd}
-                    onChange={(e) => setHistoryEnd(e.target.value)}
-                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
+                <div className="filter-group">
+                  <DateTimePicker 
+                    label="END DATE & TIME"
+                    value={historyEnd ? dayjs(historyEnd) : null}
+                    onChange={(newValue) => setHistoryEnd(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                    ampm={false}
+                    format="DD/MM/YYYY HH:mm"
+                    viewRenderers={{
+                      hours: renderTimeViewClock,
+                      minutes: renderTimeViewClock,
+                      seconds: renderTimeViewClock,
+                    }}
+                    slotProps={{ textField: { size: 'medium', style: { backgroundColor: 'white', width: '220px' } } }}
                   />
                 </div>
                 
@@ -605,15 +632,8 @@ export default function Parts() {
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button 
                     onClick={handleApplyHistoryFilter}
-                    style={{ 
-                      padding: '8px 16px', 
-                      background: '#0b4a8b', 
-                      color: 'white', 
-                      border: 'none', 
-                      borderRadius: '6px', 
-                      cursor: 'pointer',
-                      fontWeight: '500'
-                    }}
+                    style={{background: '#0b4a8b', color:'white', fontWeight: 'bold', border:'none', padding:'8px 16px', borderRadius:'4px', cursor:'pointer', marginRight:'10px', height: '40px' 
+                      }}
                   >
                     Apply Filter
                   </button>
@@ -622,10 +642,12 @@ export default function Parts() {
                     style={{ 
                       padding: '8px 16px', 
                       background: '#fff', 
+                      fontWeight: 'bold',
                       color: '#333', 
                       border: '1px solid #ddd', 
                       borderRadius: '6px', 
-                      cursor: 'pointer' 
+                      cursor: 'pointer',
+                      height: '40px'
                     }}
                   >
                     Clear
@@ -636,15 +658,17 @@ export default function Parts() {
                       padding: '8px 16px', 
                       background: '#28a745', 
                       color: 'white', 
+                      fontWeight: 'bold',
                       border: 'none', 
                       borderRadius: '6px', 
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '5px'
+                      gap: '5px',
+                      height: '40px'
                     }}
                   >
-                    <Download size={18} /> Export Data</button>
+                    <Download size={18} /> Export Data </button>
                 </div>
               </div>
 
@@ -655,7 +679,7 @@ export default function Parts() {
                     <tr>
                       <th>No.</th>
                       <th>Timestamp</th>
-                      <th>Action</th>
+                      <th>Status</th>
                       <th>Manpower</th>
                     </tr>
                   </thead>
@@ -734,6 +758,6 @@ export default function Parts() {
           </div>
         </>
       )}
-    </div>
+    </LocalizationProvider>
   );
 }

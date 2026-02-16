@@ -391,7 +391,9 @@ export default function Dashboard() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `Analysis_${modalData.deviceName}_${modalStartDate}_${modalEndDate}.csv`);
+    const startStr = dayjs(modalStartDate).format('YYYY-MM-DD_HH-mm');
+    const endStr = dayjs(modalEndDate).format('YYYY-MM-DD_HH-mm');
+    link.setAttribute("download", `Analysis_${modalData.deviceName}_${startStr}_to_${endStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -662,61 +664,83 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+              {showComparisonFilter && (
+                  <div 
+                    className="comparison-filter-bar" 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', // This forces vertical alignment
+                      gap: '15px',         
+                      flexWrap: 'wrap',
+                      marginBottom: '20px'
+                    }}
+                  >
+                    {/* --- START DATE --- */}
+                    <div className="filter-group">
+                      <DateTimePicker 
+                        label="START DATE & TIME"
+                        value={dayjs(tempStartDate)}
+                        onChange={(newValue) => setTempStartDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                        ampm={false}
+                        format="DD/MM/YYYY HH:mm"
+                        viewRenderers={{
+                          hours: renderTimeViewClock,
+                          minutes: renderTimeViewClock,
+                          seconds: renderTimeViewClock,
+                        }}
+                        slotProps={{ 
+                          textField: { 
+                            size: "medium", 
+                            sx: { 
+                              backgroundColor: 'white',
+                              '& .MuiInputBase-input': { fontSize: '13px', fontWeight: 'bold' },
+                              '& .MuiInputLabel-root': { fontSize: '14px', fontWeight: 'bold' }
+                            } 
+                          } 
+                        }}
+                      />
+                    </div>
 
-            {showComparisonFilter && (
-            <div className="comparison-filter-bar">
-              <div className="filter-group">
-                <DateTimePicker 
-                  label="Start Date & Time"
-                  value={dayjs(tempStartDate)}
-                  onChange={(newValue) => setTempStartDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
-                  ampm={false}
-                  format="DD/MM/YYYY HH:mm"
-                  viewRenderers={{
-                    hours: renderTimeViewClock,
-                    minutes: renderTimeViewClock,
-                    seconds: renderTimeViewClock,
-                  }}
-                  slotProps={{ textField: { size: "medium", style: { backgroundColor: 'white' } } }}
-                />
-              </div>
-              <div className="filter-group">
-                <DateTimePicker 
-                  label="End Date & Time"
-                  value={dayjs(tempEndDate)}
-                  onChange={(newValue) => setTempEndDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
-                  ampm={false}
-                  format="DD/MM/YYYY HH:mm"
-                  viewRenderers={{
-                    hours: renderTimeViewClock,
-                    minutes: renderTimeViewClock,
-                    seconds: renderTimeViewClock,
-                  }}
-                  slotProps={{ textField: { size: "medium", style: { backgroundColor: 'white' } } }}
-                />
-              </div>
-              
-              <button 
-                className="btn-apply-filter" 
-                onClick={handleApplyFilter}
-                style={{ 
-                  marginLeft: '10px', 
-                  padding: '12px 16px', 
-                  backgroundColor: '#0b4a8b', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  height: '38px',
-                  alignSelf: 'flex-end'
-                }}
-              >
-                Apply Filter
-              </button>
-            </div>
-          )}
+                    {/* --- END DATE --- */}
+                    <div className="filter-group">
+                      <DateTimePicker 
+                        label="END DATE & TIME"
+                        value={dayjs(tempEndDate)}
+                        onChange={(newValue) => setTempEndDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                        ampm={false}
+                        format="DD/MM/YYYY HH:mm"
+                        viewRenderers={{
+                          hours: renderTimeViewClock,
+                          minutes: renderTimeViewClock,
+                          seconds: renderTimeViewClock,
+                        }}
+                        slotProps={{ 
+                          textField: { 
+                            size: "medium", 
+                            sx: { 
+                              backgroundColor: 'white',
+                              '& .MuiInputBase-input': { fontSize: '13px', fontWeight: 'bold' },
+                              '& .MuiInputLabel-root': { fontSize: '14px', fontWeight: 'bold' }
+                            } 
+                          } 
+                        }}
+                      />
+                    </div>
 
+                    {/* --- BUTTON (MOVED OUTSIDE THE DIVS) --- */}
+                    <button 
+                      className="btn-apply-filter" 
+                      onClick={handleApplyFilter}
+                      style={{background: '#0b4a8b', color:'white', fontWeight: 'bold', border:'none', padding:'8px 16px', borderRadius:'4px', cursor:'pointer', marginRight:'10px', height: '40px' 
+                      }}
+                    >
+                      Apply Filter
+                    </button>
+                    
+                  </div>
+                )}
+         {/* </div> 
+    )} */}
         <div className="comparison-container" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {devices.map((device) => (
              <div 
@@ -825,23 +849,40 @@ export default function Dashboard() {
               <div className="history-section">
                 <div className="date-range-container" style={{display:'flex', gap:'10px', alignItems:'center'}}>
                   <div className="date-input-group">
-                    <DateTimePicker 
-                      label="Start Time"
-                      value={dayjs(modalStartDate)}
-                      onChange={(newValue) => setModalStartDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
-                      ampm={false}
-                      format="DD/MM/YYYY HH:mm"
-                      viewRenderers={{
-                        hours: renderTimeViewClock,
-                        minutes: renderTimeViewClock,
-                        seconds: renderTimeViewClock,
-                      }}
-                      slotProps={{ textField: { size: 'small', style: { width: '220px', backgroundColor: 'white' } } }}
-                    />
+                <DateTimePicker 
+                  label="START DATE & TIME"
+                  value={dayjs(modalStartDate)}
+                  onChange={(newValue) => setModalStartDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                  ampm={false}
+                  format="DD/MM/YYYY HH:mm"
+                  viewRenderers={{
+                    hours: renderTimeViewClock,
+                    minutes: renderTimeViewClock,
+                    seconds: renderTimeViewClock,
+                  }}
+                  slotProps={{ 
+                    textField: { 
+                      size: 'medium', 
+                      sx: { 
+                        width: '220px', 
+                        backgroundColor: 'white',
+                        // Target the input text
+                        '& .MuiInputBase-input': {
+                          fontWeight: 700, // 700 is standard bold
+                          fontSize: '13px', // Slightly larger than default small
+                        },
+                        // Target the label
+                        '& .MuiInputLabel-root': {
+                          fontWeight: 700,
+                        }
+                      } 
+                    } 
+                  }}
+                />
                   </div>
                   <div className="date-input-group">
                     <DateTimePicker 
-                      label="End Time"
+                      label="END DATE & TIME"
                       value={dayjs(modalEndDate)}
                       onChange={(newValue) => setModalEndDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
                       ampm={false}
@@ -851,7 +892,24 @@ export default function Dashboard() {
                         minutes: renderTimeViewClock,
                         seconds: renderTimeViewClock,
                       }}
-                      slotProps={{ textField: { size: 'small', style: { width: '220px', backgroundColor: 'white' } } }}
+                      slotProps={{ 
+                        textField: { 
+                          size: 'medium', 
+                          sx: { 
+                            width: '220px', 
+                            backgroundColor: 'white',
+                            // Target the input text
+                            '& .MuiInputBase-input': {
+                              fontWeight: 700, 
+                              fontSize: '13px',
+                            },
+                            // Target the label
+                            '& .MuiInputLabel-root': {
+                              fontWeight: 700,
+                            }
+                          } 
+                        } 
+                      }}
                     />
                   </div>
                   <button className="btn-apply" 
@@ -859,7 +917,7 @@ export default function Dashboard() {
                   style={{ background: '#0b4a8b', color:'white', fontWeight: 'bold', border:'none', padding:'8px 16px', borderRadius:'4px', cursor:'pointer', marginRight:'10px', height: '40px' }}>
                     Apply Filter
                   </button>
-                  <button className="btn-export" onClick={handleExportModalData} style={{ background: '#28a745', color:'white', border:'none', padding:'8px 16px', borderRadius:'4px', cursor:'pointer', marginRight:'10px', height: '40px' }}>
+                  <button className="btn-export" onClick={handleExportModalData} style={{ background: '#28a745', fontWeight: 'bold', color:'white', border:'none', padding:'8px 16px', borderRadius:'4px', cursor:'pointer', marginRight:'10px', height: '40px' }}>
                     <Download size={18} /> Export Data</button>
                 </div>
               </div>
