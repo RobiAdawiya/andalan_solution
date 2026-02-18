@@ -202,15 +202,8 @@ export default function ManPower() {
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = async () => {
-    // 1. Validation
-    if (!editingPerson.name || !editingPerson.position) {
-      return Swal.fire({
-        icon: 'warning',
-        title: 'Missing Fields',
-        text: 'Please fill in Name and Position!',
-      });
-    }
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
     
     try {
       const response = await fetch("/api/editmanpower", {
@@ -638,7 +631,10 @@ export default function ManPower() {
               <h2>Edit Data Manpower</h2>
               <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={24} /></button>
             </div>
-            <div className="modal-body">
+            
+            {/* 2. ADD FORM TAG HERE */}
+            <form onSubmit={handleSaveEdit}>
+              <div className="modal-body">
               <div className="form-group">
                 <label>Nama Lengkap</label>
                 <input 
@@ -646,11 +642,12 @@ export default function ManPower() {
                   value={editingPerson.name} 
                   onChange={(e) => setEditingPerson({...editingPerson, name: e.target.value})} 
                   className="form-input" 
+                  required
                 />
               </div>
               <div className="form-group">
                 <label>NIK (Read Only)</label>
-                <input type="text" value={editingPerson.nik} disabled className="form-input disabled" />
+                <input type="text" value={editingPerson.nik} disabled className="form-input disabled" required />
               </div>
               <div className="form-group">
                 <label>Department</label>
@@ -658,6 +655,7 @@ export default function ManPower() {
                   value={editingPerson.department} 
                   onChange={(e) => setEditingPerson({...editingPerson, department: e.target.value})} 
                   className="form-input"
+                  required
                 >
                   <option value="Engineering">Engineering</option>
                   <option value="Maintenance">Maintenance</option>
@@ -671,13 +669,16 @@ export default function ManPower() {
                   value={editingPerson.position} 
                   onChange={(e) => setEditingPerson({...editingPerson, position: e.target.value})} 
                   className="form-input" 
+                  required
                 />
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setShowEditModal(false)}>Batal</button>
-              <button className="btn-save" onClick={handleSaveEdit}>Simpan Perubahan</button>
+              {/* 3. CHANGE BUTTON TYPES */}
+              <button type="button" className="btn-cancel" onClick={() => setShowEditModal(false)}>Batal</button>
+              <button type="submit" className="btn-save">Simpan Perubahan</button>
             </div>
+            </form> {/* <--- 4. CLOSE FORM TAG HERE */}
           </div>
         </>
       )}
@@ -702,7 +703,7 @@ export default function ManPower() {
                     value={addForm.name} 
                     onChange={(e) => setAddForm({...addForm, name: e.target.value})} 
                     className="form-input"
-                    required // <--- 2. ADD REQUIRED
+                    required 
                   />
                 </div>
                 <div className="form-group">
@@ -712,7 +713,7 @@ export default function ManPower() {
                     value={addForm.nik} 
                     onChange={(e) => setAddForm({...addForm, nik: e.target.value})} 
                     className="form-input"
-                    required // <--- 2. ADD REQUIRED
+                    required 
                   />
                 </div>
                 <div className="form-group">
@@ -722,7 +723,7 @@ export default function ManPower() {
                     value={addForm.position} 
                     onChange={(e) => setAddForm({...addForm, position: e.target.value})} 
                     className="form-input"
-                    required // <--- 2. ADD REQUIRED
+                    required 
                   />
                 </div>
                 <div className="form-group">
