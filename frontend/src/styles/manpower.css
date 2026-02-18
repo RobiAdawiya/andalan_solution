@@ -180,12 +180,11 @@
 }
 
 .action-btn.btn-edit {
-  background: #4CAF50;
-  color: white;
+  background: #ffc107;
 }
 
 .action-btn.btn-edit:hover {
-  background: #45a049;
+  background: #e0a800;
 }
 
 .action-btn.btn-delete {
@@ -537,7 +536,7 @@
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 600;
-  text-transform: uppercase;
+  text-transform: capitalize;
 }
 .status-badge.status-login { background: #e8f5e9; color: #2e7d32; }
 .status-badge.status-logout { background: #ffebee; color: #c62828; }

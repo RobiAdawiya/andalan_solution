@@ -631,8 +631,6 @@ export default function ManPower() {
               <h2>Edit Data Manpower</h2>
               <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={24} /></button>
             </div>
-            
-            {/* 2. ADD FORM TAG HERE */}
             <form onSubmit={handleSaveEdit}>
               <div className="modal-body">
               <div className="form-group">
@@ -674,11 +672,10 @@ export default function ManPower() {
               </div>
             </div>
             <div className="modal-footer">
-              {/* 3. CHANGE BUTTON TYPES */}
               <button type="button" className="btn-cancel" onClick={() => setShowEditModal(false)}>Batal</button>
               <button type="submit" className="btn-save">Simpan Perubahan</button>
             </div>
-            </form> {/* <--- 4. CLOSE FORM TAG HERE */}
+            </form> 
           </div>
         </>
       )}

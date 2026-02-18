@@ -120,15 +120,14 @@
 }
 
 /* ===== STATUS BADGES ===== */
-/* ===== STATUS BADGES ===== */
+
 .status-badge {
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 0.85rem;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
   font-weight: 600;
-  display: inline-block;
-  min-width: 100px; /* Opsional: Biar lebar badge seragam */
-  text-align: center;
+  text-transform: capitalize;
+  /* text-transform: uppercase; */
 }
 
 /* WORKING (HIJAU) */
@@ -176,6 +175,14 @@
 
 .action-btn.btn-qr {
   background: #0b4a8b;
+}
+
+.action-btn.btn-edit {
+  background: #ffc107;
+}
+
+.action-btn.btn-edit:hover {
+  background: #e0a800;
 }
 
 .action-btn.btn-qr:hover {

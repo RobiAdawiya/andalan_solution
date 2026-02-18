@@ -166,12 +166,11 @@
 }
 
 .action-btn.btn-edit {
-  background: #4CAF50;
-  color: white;
+  background: #ffc107;
 }
 
 .action-btn.btn-edit:hover {
-  background: #45a049;
+  background: #e0a800;
 }
 
 .action-btn.btn-delete {
