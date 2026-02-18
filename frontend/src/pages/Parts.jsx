@@ -13,6 +13,7 @@ import dayjs from 'dayjs';
 
 // API Imports
 import { getProductList, getProductLogs } from "../services/api";
+import Swal from "sweetalert2";
 
 export default function Parts() {
   // --- 1. STATE MANAGEMENT ---
@@ -127,14 +128,22 @@ export default function Parts() {
       });
 
       if (response.ok) {
-        alert("Part added successfully!");
+        // Success Modal
+        Swal.fire({
+          icon: 'success',
+          title: 'Success!',
+          text: 'Part added successfully!',
+          timer: 2000,
+          showConfirmButton: false
+        });
+        
         setShowAddModal(false);
         fetchInitialData(); 
       } else {
-        alert("Failed to add part.");
+        Swal.fire('Error', 'Failed to add part.', 'error');
       }
     } catch (error) {
-      console.error("Error adding part:", error);
+      Swal.fire('Error', 'Error connecting to server.', 'error');
     }
   };
 
@@ -164,45 +173,69 @@ export default function Parts() {
           });
 
           if (response.ok) {
-            alert("Part updated successfully!");
+            // Success Modal
+            Swal.fire({
+              icon: 'success',
+              title: 'Updated!',
+              text: 'Part updated successfully!',
+              timer: 2000,
+              showConfirmButton: false
+            });
+            
             setShowEditModal(false);
             fetchInitialData(); 
           } else {
-            alert("Failed to update part.");
+            Swal.fire('Error', 'Failed to update part.', 'error');
           }
         } catch (error) {
-          console.error("Error updating part:", error);
-          alert("Error connecting to server.");
+          Swal.fire('Error', 'Error connecting to server.', 'error');
         }
     };
         
 
   // --- HANDLE DELETE ---
   const handleDelete = async (part) => {
-    if (window.confirm(`Delete permanently ${part.name_product} from database?`)) {
-      try {
-        const response = await fetch("/api/delete_product", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            machine_name: part.machine_name, 
-            name_product: part.name_product 
-          })
-        });
+    // 1. Confirmation Modal
+    Swal.fire({
+      title: 'Delete Part?',
+      text: `Are you sure you want to delete ${part.name_product} permanently?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true
+    }).then(async (result) => {
+      // 2. Action if Confirmed
+      if (result.isConfirmed) {
+        try {
+          const response = await fetch("/api/delete_product", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              machine_name: part.machine_name, 
+              name_product: part.name_product 
+            })
+          });
 
-        const result = await response.json();
+          const result = await response.json();
 
-        if (response.ok) {
-          setPartsData(prev => prev.filter(p => p.no !== part.no));
-          alert("Data successfully deleted!");
-        } else {
-          alert("Failed: " + (result.detail || result.message));
+          if (response.ok) {
+            setPartsData(prev => prev.filter(p => p.no !== part.no));
+            
+            // 3. Success Modal
+            Swal.fire(
+              'Deleted!',
+              'Part has been successfully deleted.',
+              'success'
+            );
+          } else {
+            Swal.fire('Error', result.detail || result.message, 'error');
+          }
+        } catch (err) {
+          Swal.fire('Error', 'Failed to connect to backend!', 'error');
         }
-      } catch (err) {
-        console.error("Fetch Error:", err);
-        alert("Failed to connect to backend!");
       }
-    }
+    });
   };
 
   // --- HISTORY LOGIC ---
@@ -254,8 +287,12 @@ export default function Parts() {
     });
 
     if (filteredLogs.length === 0) {
-      alert("No data to export!");
-      return;
+      return Swal.fire({
+        icon: 'warning',
+        title: 'No Data',
+        text: 'There is no history data to export based on your current filters.',
+        confirmButtonText: 'OK'
+      });
     }
 
     // CSV Headers

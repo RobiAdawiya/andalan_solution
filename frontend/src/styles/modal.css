@@ -1,0 +1,56 @@
+/* --- 1. The Main Alert Box --- */
+div.swal2-popup {
+  border-radius: 12px !important;       /* Soft corners */
+  padding: 2em !important;
+  font-family: 'Segoe UI', sans-serif !important; /* Matches your dashboard font */
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* --- 2. The Title --- */
+h2.swal2-title {
+  color: #111827 !important;            /* Dark text */
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+}
+
+/* --- 3. The "Confirm" Button --- */
+button.swal2-confirm {
+  background-color: #0b4a8b !important; 
+  color: #ffffff !important;
+  border-radius: 6px !important;
+  padding: 12px 28px !important;
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 4px 6px -1px rgba(11, 74, 139, 0.2) !important;
+  transition: background-color 0.2s !important;
+}
+
+button.swal2-confirm:hover {
+  background-color: #093b6e !important; /* Darker blue on hover */
+}
+
+/* --- 4. The "Cancel" Button --- */
+button.swal2-cancel {
+  background-color: #ffffff !important;
+  color: #6b7280 !important;            /* Grey text */
+  border: 1px solid #d1d5db !important; /* Grey border */
+  border-radius: 6px !important;
+  padding: 12px 28px !important;
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+  margin-right: 12px !important;
+}
+
+button.swal2-cancel:hover {
+  background-color: #f3f4f6 !important; /* Light grey on hover */
+  color: #111827 !important;
+}
+
+/* --- 5. Danger Mode (Optional: For "Delete" actions) --- */
+/* If you use specific "deny" buttons, this makes them Red */
+button.swal2-deny {
+  background-color: #dc2626 !important; 
+}

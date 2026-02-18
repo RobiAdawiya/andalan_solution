@@ -11,6 +11,8 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
 import dayjs from 'dayjs';
+// MODAL LIB
+import Swal from "sweetalert2";
 
 export default function ManPower() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -146,8 +148,12 @@ export default function ManPower() {
     });
 
     if (filteredLogs.length === 0) {
-      alert("No data to export!");
-      return;
+      return Swal.fire({
+        icon: 'warning',
+        title: 'No Data',
+        text: 'There is no history data to export based on your current filters.',
+        confirmButtonText: 'OK'
+      });
     }
 
     // CSV Headers
@@ -197,10 +203,15 @@ export default function ManPower() {
   };
 
   const handleSaveEdit = async () => {
+    // 1. Validation
     if (!editingPerson.name || !editingPerson.position) {
-      alert("Please fill in all fields!");
-      return;
+      return Swal.fire({
+        icon: 'warning',
+        title: 'Missing Fields',
+        text: 'Please fill in Name and Position!',
+      });
     }
+    
     try {
       const response = await fetch("/api/editmanpower", {
         method: "PUT",
@@ -212,44 +223,92 @@ export default function ManPower() {
           position: editingPerson.position
         })
       });
+      
       if (response.ok) {
         await loadData();
         setShowEditModal(false);
-        alert("Man Power successfully updated!");
+        // 2. Success (Default Center Position)
+        Swal.fire({
+          icon: 'success',
+          title: 'Updated!',
+          text: 'Man Power data successfully updated!',
+          timer: 2000,
+          showConfirmButton: false
+        });
       }
-    } catch (err) { alert("Server connection failed."); }
+    } catch (err) { 
+      Swal.fire('Error', 'Server connection failed.', 'error'); 
+    }
   };
 
-  const handleSaveAdd = async () => {
+  const handleSaveAdd = async (e) => {
+    e.preventDefault(); // <--- PREVENTS PAGE RELOAD
+
+    // NOTE: validation check is removed because the browser handles it now due to 'required' attribute
+    
     try {
       const response = await fetch("/api/add_manpower", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(addForm)
       });
+      
       if (response.ok) {
         await loadData();
         setShowAddModal(false);
         setAddForm({ name: "", nik: "", department: "Engineering", position: "" });
-        alert("Man Power successfully added!");
+        
+        // Success Modal
+        Swal.fire({
+          icon: 'success',
+          title: 'Success!',
+          text: 'New Man Power successfully added!',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } else {
+        Swal.fire('Error', 'Failed to add data. NIK might already exist.', 'error');
       }
-    } catch (err) { alert("Server Error"); }
+    } catch (err) { 
+      Swal.fire('Error', 'Server Error occurred.', 'error'); 
+    }
   };
 
   const handleDelete = async (mp) => {
-    if (window.confirm(`Delete ${mp.name}?`)) {
-      try {
-      const response = await fetch("/api/delete_manpower", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nik: mp.nik })
-        });
-        if (response.ok) {
-          setManPowerData(prev => prev.filter(p => p.nik !== mp.nik));
-          alert("Deleted!");
+    // 1. Confirmation Modal
+    Swal.fire({
+      title: 'Delete Man Power?',
+      text: `Are you sure you want to delete ${mp.name}? This cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true
+    }).then(async (result) => {
+      // 2. Action if confirmed
+      if (result.isConfirmed) {
+        try {
+          const response = await fetch("/api/delete_manpower", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ nik: mp.nik })
+          });
+          
+          if (response.ok) {
+            setManPowerData(prev => prev.filter(p => p.nik !== mp.nik));
+            
+            // 3. Success Modal
+            Swal.fire(
+              'Deleted!',
+              `${mp.name} has been deleted.`,
+              'success'
+            );
+          }
+        } catch (err) { 
+          Swal.fire('Error', 'Delete failed', 'error'); 
         }
-      } catch (err) { alert("Delete failed"); }
-    }
+      }
+    });
   };
 
   // --- 5. QR & PDF LOGIC ---
@@ -632,23 +691,59 @@ export default function ManPower() {
               <h2>Add New Man Power</h2>
               <button className="modal-close" onClick={() => setShowAddModal(false)}><X size={24} /></button>
             </div>
-            <div className="modal-body">
-              <div className="form-group"><label>Nama</label><input type="text" value={addForm.name} onChange={(e) => setAddForm({...addForm, name: e.target.value})} className="form-input" /></div>
-              <div className="form-group"><label>NIK</label><input type="text" value={addForm.nik} onChange={(e) => setAddForm({...addForm, nik: e.target.value})} className="form-input" /></div>
-              <div className="form-group"><label>Position</label><input type="text" value={addForm.position} onChange={(e) => setAddForm({...addForm, position: e.target.value})} className="form-input" /></div>
-              <div className="form-group">
-                <label>Department</label>
-                <select value={addForm.department} onChange={(e) => setAddForm({...addForm, department: e.target.value})} className="form-input">
-                  <option value="Engineering">Engineering</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="Operations">Operations</option>
-                </select>
+            
+            {/* 1. WRAP INPUTS IN FORM TAG WITH onSubmit */}
+            <form onSubmit={handleSaveAdd}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Nama</label>
+                  <input 
+                    type="text" 
+                    value={addForm.name} 
+                    onChange={(e) => setAddForm({...addForm, name: e.target.value})} 
+                    className="form-input"
+                    required // <--- 2. ADD REQUIRED
+                  />
+                </div>
+                <div className="form-group">
+                  <label>NIK</label>
+                  <input 
+                    type="text" 
+                    value={addForm.nik} 
+                    onChange={(e) => setAddForm({...addForm, nik: e.target.value})} 
+                    className="form-input"
+                    required // <--- 2. ADD REQUIRED
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Position</label>
+                  <input 
+                    type="text" 
+                    value={addForm.position} 
+                    onChange={(e) => setAddForm({...addForm, position: e.target.value})} 
+                    className="form-input"
+                    required // <--- 2. ADD REQUIRED
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Department</label>
+                  <select 
+                    value={addForm.department} 
+                    onChange={(e) => setAddForm({...addForm, department: e.target.value})} 
+                    className="form-input"
+                  >
+                    <option value="Engineering">Engineering</option>
+                    <option value="Maintenance">Maintenance</option>
+                    <option value="Operations">Operations</option>
+                  </select>
+                </div>
               </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setShowAddModal(false)}>Cancel</button>
-              <button className="btn-save" onClick={handleSaveAdd}>Save</button>
-            </div>
+              <div className="modal-footer">
+                {/* 3. CHANGE BUTTON TYPES */}
+                <button type="button" className="btn-cancel" onClick={() => setShowAddModal(false)}>Cancel</button>
+                <button type="submit" className="btn-save">Save</button>
+              </div>
+            </form>
           </div>
         </>
       )}

@@ -10,7 +10,7 @@ RUN npm install --force
 
 # --- PERBAIKAN DI SINI ---
 # Kita tambahkan jspdf ke daftar install manual
-RUN npm install lucide-react qrcode jspdf react-router-dom @mui/x-date-pickers @mui/material @emotion/react @emotion/styled dayjs
+RUN npm install lucide-react qrcode jspdf react-router-dom @mui/x-date-pickers @mui/material @emotion/react @emotion/styled dayjs sweetalert2
 
 # Copy seluruh source code
 COPY . .

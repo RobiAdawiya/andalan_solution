@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Edit, Trash2, X, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import "../styles/device.css";
 import { getDeviceList, addDevice, deleteDevice, updateDevice } from "../services/api";
+import Swal from "sweetalert2";
 
 export default function Device() {
   // --- STATE MANAGEMENT ---
@@ -15,7 +16,6 @@ export default function Device() {
   const [addForm, setAddForm] = useState({ machine_name: "", serial_number: "" });
   const [editForm, setEditForm] = useState({ machine_name: "", serial_number: "" });
 
-  // FIXED: Added 'const' to prevent ReferenceError
   const [editingDevice, setEditingDevice] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -65,16 +65,31 @@ export default function Device() {
     setShowAddModal(true);
   };
 
-  const handleSaveAdd = async () => {
-    if (!addForm.machine_name || !addForm.serial_number) return alert("Please fill all fields!");
+  // FIXED: Added 'e' parameter
+  const handleSaveAdd = async (e) => {
+    e.preventDefault(); // Now 'e' is defined!
     try {
       const res = await addDevice(addForm);
       if (res.status === "success") {
         await fetchDevices();
         setShowAddModal(false);
-        alert("Device saved successfully!");
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Device Saved Successfully!',   
+          showConfirmButton: false,
+          timer: 1500,
+          showClass: { popup: 'animate__animated animate__fadeInDown' },
+          hideClass: { popup: 'animate__animated animate__fadeOutUp' }
+        });
       }
-    } catch (err) { alert("Server error while adding device."); }
+    } catch (err) { 
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Server error while adding device.'
+      });
+    }
   };
 
   const handleEditClick = (device) => {
@@ -83,27 +98,59 @@ export default function Device() {
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = async () => {
+  // FIXED: Added 'e' parameter
+  const handleSaveEdit = async (e) => {
+    e.preventDefault(); // Now 'e' is defined!
     try {
       const res = await updateDevice(editForm);
       if (res.status === "success") {
         await fetchDevices();
         setShowEditModal(false);
-        alert("Serial number updated!");
+        
+        Swal.fire({
+          icon: 'success',
+          title: 'Serial Number Updated!',
+          showConfirmButton: false,
+          timer: 1500
+        });
       }
-    } catch (error) { alert("Failed to update data."); }
+    } catch (error) { 
+      Swal.fire({
+        icon: 'error',
+        title: 'Update Failed',
+        text: 'Failed to update device data.'
+      });
+    }
   };
 
   const handleDelete = async (device) => {
-    if (window.confirm(`Delete device ${device.machine_name}?`)) {
-      try {
-        const res = await deleteDevice(device.machine_name);
-        if (res.status === "success") {
-          await fetchDevices();
-          alert("Device removed from database.");
+    Swal.fire({
+      title: 'Delete Device?',
+      text: `Are you sure you want to delete ${device.machine_name}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const res = await deleteDevice(device.machine_name);
+          if (res.status === "success") {
+            await fetchDevices();
+            
+            Swal.fire({
+              icon: 'success',
+              title: 'Device Deleted!',
+              showConfirmButton: false,
+              timer: 1500
+            });
+          }
+        } catch (err) { 
+          Swal.fire('Error', 'Delete failed.', 'error'); 
         }
-      } catch (err) { alert("Delete failed."); }
-    }
+      }
+    });
   };
 
   return (
@@ -223,32 +270,39 @@ export default function Device() {
               <h2>Add New Device</h2>
               <button className="modal-close" onClick={() => setShowAddModal(false)}><X size={20}/></button>
             </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Machine Name (ID)</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={addForm.machine_name} 
-                  onChange={(e) => setAddForm({...addForm, machine_name: e.target.value})} 
-                  placeholder="e.g. machine_01" 
-                />
+            
+            {/* FIXED: Wrapped in FORM tag */}
+            <form onSubmit={handleSaveAdd}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Machine Name (ID)</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={addForm.machine_name} 
+                    onChange={(e) => setAddForm({...addForm, machine_name: e.target.value})} 
+                    placeholder="e.g. machine_01" 
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Serial Number</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={addForm.serial_number} 
+                    onChange={(e) => setAddForm({...addForm, serial_number: e.target.value})} 
+                    placeholder="e.g. SN-0502" 
+                    required
+                  />
+                </div>
               </div>
-              <div className="form-group">
-                <label>Serial Number</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={addForm.serial_number} 
-                  onChange={(e) => setAddForm({...addForm, serial_number: e.target.value})} 
-                  placeholder="e.g. SN-0502" 
-                />
+              <div className="modal-footer">
+                {/* FIXED: Button types */}
+                <button type="button" className="btn-cancel" onClick={() => setShowAddModal(false)}>Cancel</button>
+                <button type="submit" className="btn-save">Save Device</button>
               </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setShowAddModal(false)}>Cancel</button>
-              <button className="btn-save" onClick={handleSaveAdd}>Save Device</button>
-            </div>
+            </form>
           </div>
         </>
       )}
@@ -262,25 +316,31 @@ export default function Device() {
               <h2>Edit Serial Number</h2>
               <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={20}/></button>
             </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Machine Name (Read Only)</label>
-                <input type="text" className="form-input disabled" value={editForm.machine_name} disabled />
+            
+            {/* FIXED: Wrapped in FORM tag */}
+            <form onSubmit={handleSaveEdit}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Machine Name (Read Only)</label>
+                  <input type="text" className="form-input disabled" value={editForm.machine_name} disabled required/>
+                </div>
+                <div className="form-group">
+                  <label>Update Serial Number</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={editForm.serial_number} 
+                    onChange={(e) => setEditForm({...editForm, serial_number: e.target.value})}
+                    required
+                  />
+                </div>
               </div>
-              <div className="form-group">
-                <label>Update Serial Number</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={editForm.serial_number} 
-                  onChange={(e) => setEditForm({...editForm, serial_number: e.target.value})} 
-                />
+              <div className="modal-footer">
+                {/* FIXED: Button types */}
+                <button type="button" className="btn-cancel" onClick={() => setShowEditModal(false)}>Cancel</button>
+                <button type="submit" className="btn-save">Update Data</button>
               </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-cancel" onClick={() => setShowEditModal(false)}>Cancel</button>
-              <button className="btn-save" onClick={handleSaveEdit}>Update Data</button>
-            </div>
+            </form>
           </div>
         </>
       )}

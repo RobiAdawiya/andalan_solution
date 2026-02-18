@@ -11,6 +11,7 @@ import menuIcon from "./assets/menu.png";
 import logo2 from "./assets/logo2.png";
 import "./App.css";
 import { changePassword } from "./services/api";
+import Swal from "sweetalert2";
 
 function App() {
   // MODIFIED: Check localStorage immediately to prevent "flash" of unauthenticated state
@@ -62,13 +63,23 @@ function App() {
   };
 
   const handleLogout = () => {
-    if (window.confirm("Are you sure you want to exit?")) {
-      localStorage.removeItem("auth");
-      localStorage.removeItem("username");
-      setIsAuth(false);
-      setSidebarOpen(false);
-      navigate("/login");
-    }
+    Swal.fire({
+      title: 'Exit Andalan Fluid System?',
+      text: "Are you sure you want to logout?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Logout',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true
+    }).then((result) => {
+      if (result.isConfirmed) {
+        localStorage.removeItem("auth");
+        localStorage.removeItem("username");
+        setIsAuth(false);
+        setSidebarOpen(false);
+        navigate("/login");
+      }
+    });
   };
 
   // Handle change password
@@ -97,20 +108,24 @@ function App() {
 
     try {
       const result = await changePassword(username, oldPassword, newPassword);
-      // Check for "status" === "success" (not result.success)
+      
       if (result.status === "success") {
-        alert("Password changed successfully, please log in again!");
-
-        localStorage.removeItem("auth");
-        localStorage.removeItem("username");
-        setIsAuth(false);
-        setSidebarOpen(false);
-        setShowUserMenu(false);
-
-        setShowUserMenu(false);
-        setOldPassword(""); // Reset field
-        setNewPassword("");
-        setConfirmPassword("");
+        Swal.fire({
+          title: 'Success!',
+          text: 'Password changed successfully. Please log in again.',
+          icon: 'success',
+          confirmButtonText: 'OK'
+        }).then(() => {
+          localStorage.removeItem("auth");
+          localStorage.removeItem("username");
+          setIsAuth(false);
+          setSidebarOpen(false);
+          setShowUserMenu(false);
+          
+          setOldPassword(""); 
+          setNewPassword("");
+          setConfirmPassword("");
+        });
       } else {
         // If API returns an error message, show it
         setPasswordError(result.detail || "Failed to change password");
