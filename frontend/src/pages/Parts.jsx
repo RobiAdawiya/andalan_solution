@@ -9,11 +9,48 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
+import { styled } from '@mui/material/styles';
+import Switch from '@mui/material/Switch';
 import dayjs from 'dayjs';
 
 // API Imports
 import { getProductList, getProductLogs } from "../services/api";
 import Swal from "sweetalert2";
+
+const IOSSwitch = styled((props) => (
+  <Switch focusVisibleClassName=".Mui-focusVisible" disableRipple {...props} />
+))(({ theme }) => ({
+  width: 42,
+  height: 26,
+  padding: 0,
+  '& .MuiSwitch-switchBase': {
+    padding: 0,
+    margin: 2,
+    transitionDuration: '300ms',
+    '&.Mui-checked': {
+      transform: 'translateX(16px)',
+      color: '#fff',
+      '& + .MuiSwitch-track': {
+        backgroundColor: '#dc3545', // YES = MERAH
+        opacity: 1,
+        border: 0,
+      },
+    },
+  },
+  '& .MuiSwitch-thumb': {
+    boxSizing: 'border-box',
+    width: 22,
+    height: 22,
+  },
+  '& .MuiSwitch-track': {
+    borderRadius: 26 / 2,
+    backgroundColor: '#28a745', // NO = HIJAU
+    opacity: 1,
+    transition: theme.transitions.create(['background-color'], {
+      duration: 500,
+    }),
+  },
+}));
 
 export default function Parts() {
   // --- 1. STATE MANAGEMENT ---
@@ -21,6 +58,7 @@ export default function Parts() {
   const [loading, setLoading] = useState(true);
   const [partsData, setPartsData] = useState([]);
   const [allLogs, setAllLogs] = useState([]);
+  const [devices, setDevices] = useState([]); // State untuk Dropdown Machine Name
   
   // Modals State
   const [showQrModal, setShowQrModal] = useState(false);
@@ -30,10 +68,10 @@ export default function Parts() {
   
   // History Filter States
   const [selectedPartHistory, setSelectedPartHistory] = useState(null);
-  const [historyStart, setHistoryStart] = useState(""); // Input State
-  const [historyEnd, setHistoryEnd] = useState("");     // Input State
-  const [activeHistoryStart, setActiveHistoryStart] = useState(""); // Active Filter State
-  const [activeHistoryEnd, setActiveHistoryEnd] = useState("");     // Active Filter State
+  const [historyStart, setHistoryStart] = useState(""); 
+  const [historyEnd, setHistoryEnd] = useState("");     
+  const [activeHistoryStart, setActiveHistoryStart] = useState(""); 
+  const [activeHistoryEnd, setActiveHistoryEnd] = useState("");     
   
   // QR & Data State
   const [qrDataUrl, setQrDataUrl] = useState("");
@@ -45,14 +83,19 @@ export default function Parts() {
 
   // Form State (Untuk Add & Edit)
   const [formData, setFormData] = useState({
+    wo_number: "",
     machine_name: "",
-    name_product: ""
+    name_product: "",
+    closed: true
   });
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   
+  // Sorting State
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
+
   // --- 2. DATA FETCHING (API INTEGRATION) ---
   useEffect(() => {
     fetchInitialData();
@@ -61,6 +104,18 @@ export default function Parts() {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
+
+      // Ambil daftar Machine (Device) untuk Dropdown
+      try {
+        const devRes = await fetch("/api/devices");
+        if (devRes.ok) {
+          const devData = await devRes.json();
+          setDevices(devData);
+        }
+      } catch (err) {
+        console.error("Gagal mengambil data devices", err);
+      }
+
       const [productsData, logsData] = await Promise.all([
         getProductList(),
         getProductLogs(),
@@ -82,22 +137,44 @@ export default function Parts() {
       setAllLogs(logsData);
     } catch (error) {
       console.error("Error fetching data:", error);
-      alert("Failed to fetch data from server.");
+      Swal.fire('Error', 'Failed to fetch data from server.', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  // --- 3. FILTER & PAGINATION ---
-  const filteredParts = partsData.filter(part =>
-    part.name_product?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    part.machine_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  // --- 3. FILTER, SORT & PAGINATION ---
+  const handleSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortedData = (data) => {
+    if (!sortConfig.key) return data;
+    
+    return [...data].sort((a, b) => {
+      const aValue = a[sortConfig.key] ? a[sortConfig.key].toLowerCase() : "";
+      const bValue = b[sortConfig.key] ? b[sortConfig.key].toLowerCase() : "";
+      
+      if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  const filteredData = partsData.filter((part) =>
+    part.name_product.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (part.wo_number && part.wo_number.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const totalPages = Math.ceil(filteredParts.length / rowsPerPage);
+  const sortedData = getSortedData(filteredData);
+  const totalPages = Math.ceil(sortedData.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
   const endIndex = startIndex + rowsPerPage;
-  const currentData = filteredParts.slice(startIndex, endIndex);
+  const currentData = sortedData.slice(startIndex, endIndex);
 
   const handleRowsPerPageChange = (value) => {
     setRowsPerPage(Number(value));
@@ -114,7 +191,7 @@ export default function Parts() {
 
   // --- HANDLE ADD ---
   const handleAddPart = () => {
-    setFormData({ machine_name: "", name_product: "" }); 
+    setFormData({ wo_number: "", machine_name: "", name_product: "", closed: true }); 
     setShowAddModal(true);
   };
 
@@ -128,15 +205,7 @@ export default function Parts() {
       });
 
       if (response.ok) {
-        // Success Modal
-        Swal.fire({
-          icon: 'success',
-          title: 'Success!',
-          text: 'Part added successfully!',
-          timer: 2000,
-          showConfirmButton: false
-        });
-        
+        Swal.fire({ icon: 'success', title: 'Success!', text: 'Part added successfully!', timer: 2000, showConfirmButton: false });
         setShowAddModal(false);
         fetchInitialData(); 
       } else {
@@ -151,14 +220,29 @@ export default function Parts() {
   const handleEdit = (part) => {
     setEditingPart(part);
     setFormData({
+      wo_number: part.wo_number || "",
       machine_name: part.machine_name,
-      name_product: part.name_product
+      name_product: part.name_product,
+      closed: part.closed || false
     });
     setShowEditModal(true);
   };
 
   const submitEditPart = async (e) => {
         e.preventDefault();
+        
+        // Pengecekan apakah ada perubahan
+        if (
+          formData.machine_name === editingPart.machine_name &&
+          formData.name_product === editingPart.name_product &&
+          formData.wo_number === (editingPart.wo_number || "")
+        ) {
+          Swal.fire({
+            icon: 'info', title: 'No Changes', text: "There's no modified things yet.", timer: 2000, showConfirmButton: false
+          });
+          setShowEditModal(false);
+          return;
+        }
         
         try {
           const response = await fetch("/api/editproduct", {
@@ -169,19 +253,13 @@ export default function Parts() {
               old_name_product: editingPart.name_product,
               new_machine_name: formData.machine_name, 
               new_name_product: formData.name_product, 
+              new_wo_number: formData.wo_number,
+              new_closed: formData.closed        
             })
           });
 
           if (response.ok) {
-            // Success Modal
-            Swal.fire({
-              icon: 'success',
-              title: 'Updated!',
-              text: 'Part updated successfully!',
-              timer: 2000,
-              showConfirmButton: false
-            });
-            
+            Swal.fire({ icon: 'success', title: 'Updated!', text: 'Part updated successfully!', timer: 2000, showConfirmButton: false });
             setShowEditModal(false);
             fetchInitialData(); 
           } else {
@@ -192,10 +270,34 @@ export default function Parts() {
         }
     };
         
+  // --- HANDLE TOGGLE CLOSED (LANGSUNG DARI TABEL) ---
+  const handleToggleClosed = async (part) => {
+    const newClosedStatus = !part.closed;
+    try {
+      const response = await fetch("/api/toggle_closed", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          machine_name: part.machine_name,
+          name_product: part.name_product,
+          closed: newClosedStatus
+        })
+      });
+
+      if (response.ok) {
+        setPartsData(prev => prev.map(p => 
+          p.no === part.no ? { ...p, closed: newClosedStatus } : p
+        ));
+      } else {
+        Swal.fire('Error', 'Gagal mengubah status closed', 'error');
+      }
+    } catch (error) {
+      Swal.fire('Error', 'Error koneksi ke server', 'error');
+    }
+  };
 
   // --- HANDLE DELETE ---
   const handleDelete = async (part) => {
-    // 1. Confirmation Modal
     Swal.fire({
       title: 'Delete Part?',
       text: `Are you sure you want to delete ${part.name_product} permanently?`,
@@ -205,7 +307,6 @@ export default function Parts() {
       cancelButtonText: 'Cancel',
       reverseButtons: true
     }).then(async (result) => {
-      // 2. Action if Confirmed
       if (result.isConfirmed) {
         try {
           const response = await fetch("/api/delete_product", {
@@ -221,13 +322,7 @@ export default function Parts() {
 
           if (response.ok) {
             setPartsData(prev => prev.filter(p => p.no !== part.no));
-            
-            // 3. Success Modal
-            Swal.fire(
-              'Deleted!',
-              'Part has been successfully deleted.',
-              'success'
-            );
+            Swal.fire('Deleted!', 'Part has been successfully deleted.', 'success');
           } else {
             Swal.fire('Error', result.detail || result.message, 'error');
           }
@@ -241,105 +336,58 @@ export default function Parts() {
   // --- HISTORY LOGIC ---
   const handleViewHistory = (part) => {
     const specificHistory = allLogs.filter(
-      (log) =>
-        log.machine_name === part.machine_name &&
-        log.name_product === part.name_product
+      (log) => log.machine_name === part.machine_name && log.name_product === part.name_product
     );
-
-    setSelectedPartHistory({
-      nama: part.name_product,
-      machine: part.machine_name,
-      history: specificHistory,
-    });
-
-    // Reset filters when opening modal
-    setHistoryStart("");
-    setHistoryEnd("");
-    setActiveHistoryStart("");
-    setActiveHistoryEnd("");
-
+    setSelectedPartHistory({ nama: part.name_product, machine: part.machine_name, history: specificHistory });
+    setHistoryStart(""); setHistoryEnd(""); setActiveHistoryStart(""); setActiveHistoryEnd("");
     setShowHistoryModal(true);
   };
 
-  // --- HISTORY FILTER HANDLERS ---
   const handleApplyHistoryFilter = () => {
     setActiveHistoryStart(historyStart);
     setActiveHistoryEnd(historyEnd);
   };
 
   const handleClearHistoryFilter = () => {
-    setHistoryStart("");
-    setHistoryEnd("");
-    setActiveHistoryStart("");
-    setActiveHistoryEnd("");
+    setHistoryStart(""); setHistoryEnd(""); setActiveHistoryStart(""); setActiveHistoryEnd("");
   };
 
   const handleExportHistoryCSV = () => {
-    // Filter data based on ACTIVE filter state
     const filteredLogs = selectedPartHistory.history.filter(log => {
       const logDate = new Date(log.created_at);
       const start = activeHistoryStart ? new Date(activeHistoryStart) : null;
       const end = activeHistoryEnd ? new Date(activeHistoryEnd) : null;
-      
       if (start && logDate < start) return false;
       if (end && logDate > end) return false;
       return true;
     });
 
     if (filteredLogs.length === 0) {
-      return Swal.fire({
-        icon: 'warning',
-        title: 'No Data',
-        text: 'There is no history data to export based on your current filters.',
-        confirmButtonText: 'OK'
-      });
+      return Swal.fire({ icon: 'warning', title: 'No Data', text: 'There is no history data to export.', confirmButtonText: 'OK' });
     }
 
-    // CSV Headers
     const headers = ["No", "Timestamp", "Action", "Manpower", "Machine", "Product"];
-    
-    // CSV Rows
     const rows = filteredLogs.map((log, index) => [
       index + 1,
-      new Date(log.created_at).toLocaleString("en-GB", { hour12: false }).replace(",", ""), // Format Date 24h
-      log.action, // Raw action (start/stop)
-      log.name_manpower,
-      log.machine_name,
-      log.name_product
+      new Date(log.created_at).toLocaleString("en-GB", { hour12: false }).replace(",", ""), 
+      log.action, log.name_manpower, log.machine_name, log.name_product
     ]);
 
-    // Combine & Download
-    const csvContent = [
-      headers.join(","), 
-      ...rows.map(e => e.join(","))
-    ].join("\n");
-
+    const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    const fileNameStart = activeHistoryStart 
-      ? dayjs(activeHistoryStart).format('YYYY-MM-DD_HH-mm') 
-      : 'Start-part-date';
-      
-    const fileNameEnd = activeHistoryEnd 
-      ? dayjs(activeHistoryEnd).format('YYYY-MM-DD_HH-mm') 
-      : dayjs().format('YYYY-MM-DD_HH-mm'); 
-
+    link.setAttribute("href", URL.createObjectURL(blob));
+    const fileNameStart = activeHistoryStart ? dayjs(activeHistoryStart).format('YYYY-MM-DD_HH-mm') : 'Start';
+    const fileNameEnd = activeHistoryEnd ? dayjs(activeHistoryEnd).format('YYYY-MM-DD_HH-mm') : dayjs().format('YYYY-MM-DD_HH-mm'); 
     link.setAttribute("download", `History_${selectedPartHistory.nama}_${fileNameStart}_to_${fileNameEnd}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
   // --- QR LOGIC ---
   const handleViewQR = async (part) => {
     try {
       setQrGenerating(true);
-      const payload = {
-        machine_name: String(part.machine_name),
-        name_product: String(part.name_product),
-      };
+      const payload = { machine_name: String(part.machine_name), name_product: String(part.name_product) };
       setQrPayload(payload);
       const dataUrl = await QRCode.toDataURL(JSON.stringify(payload), { margin: 2, width: 320 });
       setQrDataUrl(dataUrl);
@@ -356,13 +404,17 @@ export default function Parts() {
     doc.addImage(qrDataUrl, "PNG", 50, 40, 100, 100);
     doc.text(`Machine: ${qrPayload.machine_name}`, 55, 150);
     doc.text(`Product: ${qrPayload.name_product}`, 55, 160);
-    doc.save(`QR_${qrPayload.name_product}.pdf`);
+    // Format Nama: QR_nama-part_nama-machine
+    doc.save(`QR_${qrPayload.name_product}_${qrPayload.machine_name}.pdf`);
   };
 
   // --- 5. RENDER ---
-  if (loading) {
-    return <div className="loading">Loading...</div>;
-  }
+  if (loading) return <div className="loading">Loading...</div>;
+
+  const getSortIcon = (columnName) => {
+    if (sortConfig.key !== columnName) return <span style={{opacity: 0.3, marginLeft:'4px'}}>↕</span>;
+    return sortConfig.direction === 'ascending' ? <span style={{marginLeft:'4px'}}>↑</span> : <span style={{marginLeft:'4px'}}>↓</span>;
+  };
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -376,10 +428,7 @@ export default function Parts() {
               type="text"
               placeholder="Search Parts"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="search-input"
             />
           </div>
@@ -393,11 +442,7 @@ export default function Parts() {
       <div className="table-controls">
         <div className="rows-per-page">
           <label>Show</label>
-          <select 
-            value={rowsPerPage} 
-            onChange={(e) => handleRowsPerPageChange(e.target.value)}
-            className="rows-select"
-          >
+          <select value={rowsPerPage} onChange={(e) => handleRowsPerPageChange(e.target.value)} className="rows-select">
             <option value="10">10</option>
             <option value="20">20</option>
             <option value="50">50</option>
@@ -405,7 +450,7 @@ export default function Parts() {
           <span>entries</span>
         </div>
         <div className="showing-info">
-          Showing {startIndex + 1} to {Math.min(endIndex, filteredParts.length)} of {filteredParts.length} entries
+          Showing {startIndex + 1} to {Math.min(endIndex, sortedData.length)} of {sortedData.length} entries
         </div>
       </div>
 
@@ -414,22 +459,28 @@ export default function Parts() {
           <thead>
             <tr>
               <th>No.</th>
-              <th>Machine Name</th>
-              <th>Product Name</th>
+              {/* KOLOM SORTING (WO NUMBER) */}
+              <th onClick={() => handleSort('wo_number')} style={{cursor: 'pointer', whiteSpace:'nowrap'}}>
+                WO Number {getSortIcon('wo_number')}
+              </th>
+              {/* KOLOM SORTING (PRODUCT NAME) */}
+              <th onClick={() => handleSort('name_product')} style={{cursor: 'pointer', whiteSpace:'nowrap'}}>
+                Product Name {getSortIcon('name_product')}
+              </th>
+              {/* Kolom Machine Name Dihilangkan dari tabel */}
               <th>Status</th>
+              <th className="text-center">Closed</th> 
               <th className="text-center">Action</th>
             </tr>
           </thead>
           <tbody>
             {currentData.length === 0 ? (
-              <tr>
-                <td colSpan="5" style={{ textAlign: "center" }}>No data available</td>
-              </tr>
+              <tr><td colSpan="6" style={{ textAlign: "center" }}>No data available</td></tr>
             ) : (
-              currentData.map((part) => (
+              currentData.map((part, index) => (
                 <tr key={part.no}>
-                  <td>{part.no}</td>
-                  <td>{part.machine_name}</td>
+                  <td>{startIndex + index + 1}</td>
+                  <td style={{ fontWeight: "600", color: "#0b4a8b" }}>{part.wo_number || "-"}</td>
                   <td>{part.name_product}</td>
                   <td>
                     {(() => {
@@ -441,49 +492,37 @@ export default function Parts() {
                         displayLabel = "Working";
                         statusClass = "status-working";
                       }
-
-                      return (
-                        <span className={`status-badge ${statusClass}`}>
-                          {displayLabel}
-                        </span>
-                      );
+                      return <span className={`status-badge ${statusClass}`}>{displayLabel}</span>;
                     })()}
                   </td>
+                  
+                  {/* BUTTON SWITCH CLOSED */}
+                  <td className="text-center">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      <IOSSwitch 
+                        checked={part.closed} 
+                        onChange={() => handleToggleClosed(part)} 
+                      />
+                      <span style={{ fontSize: '13px', fontWeight: 'bold', color: part.closed ? '#dc3545' : '#28a745', minWidth: '25px', textAlign: 'left' }}>
+                        {part.closed ? "Yes" : "No"}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* TOMBOL ACTION LENGKAP */}
                   <td className="text-center">
                     <div className="action-buttons">
-                      <button 
-                        className="action-btn btn-qr"
-                        onClick={() => handleViewQR(part)}
-                        title="View QR"
-                      >
-                        <QrCode size={16} />
-                        QR
+                      <button className="action-btn btn-qr" onClick={() => handleViewQR(part)} title="View QR">
+                        <QrCode size={14} /> QR
                       </button>
-                      <button 
-                        className="action-btn btn-history"
-                        onClick={() => handleViewHistory(part)}
-                        title="History"
-                      >
-                        <History size={16} />
-                        History
+                      <button className="action-btn btn-history" onClick={() => handleViewHistory(part)} title="History">
+                        <History size={14} /> History
                       </button>
-                      
-                      <button 
-                        className="action-btn btn-edit"
-                        onClick={() => handleEdit(part)}
-                        title="Edit"
-                      >
-                        <Edit size={16} />
-                        Edit
+                      <button className="action-btn btn-edit" style={{ backgroundColor: '#f59e0b' }} onClick={() => handleEdit(part)} title="Edit">
+                        <Edit size={14} /> Edit
                       </button>
-
-                      <button 
-                        className="action-btn btn-delete"
-                        onClick={() => handleDelete(part)}
-                        title="Delete"
-                      >
-                        <Trash2 size={16} />
-                        Delete
+                      <button className="action-btn btn-delete" onClick={() => handleDelete(part)} title="Delete">
+                        <Trash2 size={14} /> Delete
                       </button>
                     </div>
                   </td>
@@ -494,68 +533,61 @@ export default function Parts() {
         </table>
       </div>
 
+      {/* PAGINATION */}
       <div className="pagination">
-        <button 
-          className="pagination-btn"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-        >
-          <ChevronLeft size={20} />
-          Previous
-        </button>
-
+        <button className="pagination-btn" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}><ChevronLeft size={20} /> Previous</button>
         <div className="pagination-numbers">
           {[...Array(totalPages)].map((_, index) => (
-            <button
-              key={index + 1}
-              className={`pagination-number ${currentPage === index + 1 ? 'active' : ''}`}
-              onClick={() => handlePageChange(index + 1)}
-            >
-              {index + 1}
-            </button>
+            <button key={index + 1} className={`pagination-number ${currentPage === index + 1 ? 'active' : ''}`} onClick={() => handlePageChange(index + 1)}>{index + 1}</button>
           ))}
         </div>
-
-        <button 
-          className="pagination-btn"
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-        >
-          Next
-          <ChevronRight size={20} />
-        </button>
+        <button className="pagination-btn" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>Next <ChevronRight size={20} /></button>
       </div>
 
       {/* --- ADD MODAL --- */}
       {showAddModal && (
-        <>
-          <div className="modal-overlay" onClick={() => setShowAddModal(false)}></div>
-          <div className="modal">
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Add New Part</h2>
               <button className="modal-close" onClick={() => setShowAddModal(false)}><X size={24} /></button>
             </div>
             <form onSubmit={submitAddPart}>
               <div className="modal-body">
-                <div style={{ marginBottom: "1rem" }}>
-                  <label style={{ display:"block", marginBottom:"5px" }}>Machine Name</label>
+                <div className="form-group">
+                  <label>WO Number <span style={{color:'red'}}>*</span></label>
                   <input 
                     type="text" 
-                    className="search-input" 
-                    style={{ width: "100%" }}
-                    value={formData.machine_name}
-                    onChange={(e) => setFormData({...formData, machine_name: e.target.value})}
-                    required
+                    className="form-input" 
+                    value={formData.wo_number}
+                    onChange={(e) => setFormData({...formData, wo_number: e.target.value})}
+                    placeholder="Enter WO Number"
+                    required 
                   />
                 </div>
-                <div style={{ marginBottom: "1rem" }}>
-                  <label style={{ display:"block", marginBottom:"5px" }}>Product Name</label>
+                {/* DROPDOWN MACHINE NAME */}
+                <div className="form-group">
+                  <label>Machine Name <span style={{color:'red'}}>*</span></label>
+                  <select 
+                    className="form-input" 
+                    value={formData.machine_name} 
+                    onChange={(e) => setFormData({...formData, machine_name: e.target.value})} 
+                    required
+                  >
+                    <option value="" disabled>Select Machine...</option>
+                    {devices.map((dev, idx) => (
+                      <option key={idx} value={dev.machine_name}>{dev.machine_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Parts Name <span style={{color:'red'}}>*</span></label>
                   <input 
                     type="text" 
-                    className="search-input" 
-                    style={{ width: "100%" }}
+                    className="form-input"
                     value={formData.name_product}
                     onChange={(e) => setFormData({...formData, name_product: e.target.value})}
+                    placeholder="Enter Part Name"
                     required
                   />
                 </div>
@@ -566,39 +598,52 @@ export default function Parts() {
               </div>
             </form>
           </div>
-        </>
+        </div>
       )}
 
       {/* --- EDIT MODAL --- */}
       {showEditModal && (
-        <>
-          <div className="modal-overlay" onClick={() => setShowEditModal(false)}></div>
-          <div className="modal">
+        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Edit Part</h2>
               <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={24} /></button>
             </div>
             <form onSubmit={submitEditPart}>
               <div className="modal-body">
-                <div style={{ marginBottom: "1rem" }}>
-                  <label style={{ display:"block", marginBottom:"5px" }}>Machine Name</label>
+                <div className="form-group">
+                  <label>WO Number</label>
                   <input 
                     type="text" 
-                    className="search-input" 
-                    style={{ width: "100%" }}
-                    value={formData.machine_name}
-                    onChange={(e) => setFormData({...formData, machine_name: e.target.value})}
-                    required
+                    className="form-input" 
+                    value={formData.wo_number}
+                    onChange={(e) => setFormData({...formData, wo_number: e.target.value})}
+                    placeholder="Enter WO Number"
                   />
                 </div>
-                <div style={{ marginBottom: "1rem" }}>
-                  <label style={{ display:"block", marginBottom:"5px" }}>Product Name</label>
+                {/* DROPDOWN MACHINE NAME */}
+                <div className="form-group">
+                  <label>Machine Name <span style={{color:'red'}}>*</span></label>
+                  <select 
+                    className="form-input" 
+                    value={formData.machine_name} 
+                    onChange={(e) => setFormData({...formData, machine_name: e.target.value})} 
+                    required
+                  >
+                    <option value="" disabled>Select Machine...</option>
+                    {devices.map((dev, idx) => (
+                      <option key={idx} value={dev.machine_name}>{dev.machine_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Part Name <span style={{color:'red'}}>*</span></label>
                   <input 
                     type="text" 
-                    className="search-input" 
-                    style={{ width: "100%" }}
+                    className="form-input"
                     value={formData.name_product}
                     onChange={(e) => setFormData({...formData, name_product: e.target.value})}
+                    placeholder="Enter Part Name"
                     required
                   />
                 </div>
@@ -609,44 +654,27 @@ export default function Parts() {
               </div>
             </form>
           </div>
-        </>
+        </div>
       )}
 
       {/* --- HISTORY MODAL --- */}
       {showHistoryModal && selectedPartHistory && (
-        <>
-          <div className="modal-overlay" onClick={() => setShowHistoryModal(false)}></div>
-          <div className="modal modal-large">
+        <div className="modal-overlay" onClick={() => setShowHistoryModal(false)}>
+          <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>History Log: {selectedPartHistory.nama}</h2>
               <button className="modal-close" onClick={() => setShowHistoryModal(false)}><X size={24} /></button>
             </div>
             <div className="modal-body">
-              
               {/* --- FILTER & EXPORT SECTION --- */}
-              <div style={{ 
-                display: 'flex', 
-                gap: '10px', 
-                marginBottom: '15px', 
-                alignItems: 'center', // Adjusted for MUI alignment
-                flexWrap: 'wrap',
-                background: '#f8f9fa',
-                padding: '15px',
-                borderRadius: '8px'
-              }}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', alignItems: 'center', flexWrap: 'wrap', background: '#f8f9fa', padding: '15px', borderRadius: '8px' }}>
                 <div className="filter-group">
                   <DateTimePicker 
                     label="START DATE & TIME"
                     value={historyStart ? dayjs(historyStart) : null}
                     onChange={(newValue) => setHistoryStart(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
-                    ampm={false}
-                    format="DD/MM/YYYY HH:mm"
-                    viewRenderers={{
-                      hours: renderTimeViewClock,
-                      minutes: renderTimeViewClock,
-                      seconds: renderTimeViewClock,
-                    }}
-                    slotProps={{ textField: { size: 'medium', style: { backgroundColor: 'white', width: '220px' } } }}
+                    ampm={false} format="DD/MM/YYYY HH:mm" viewRenderers={{ hours: renderTimeViewClock, minutes: renderTimeViewClock, seconds: renderTimeViewClock }}
+                    slotProps={{ textField: { size: 'small', style: { backgroundColor: 'white', width: '200px' } } }}
                   />
                 </div>
                 <div className="filter-group">
@@ -654,58 +682,16 @@ export default function Parts() {
                     label="END DATE & TIME"
                     value={historyEnd ? dayjs(historyEnd) : null}
                     onChange={(newValue) => setHistoryEnd(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
-                    ampm={false}
-                    format="DD/MM/YYYY HH:mm"
-                    viewRenderers={{
-                      hours: renderTimeViewClock,
-                      minutes: renderTimeViewClock,
-                      seconds: renderTimeViewClock,
-                    }}
-                    slotProps={{ textField: { size: 'medium', style: { backgroundColor: 'white', width: '220px' } } }}
+                    ampm={false} format="DD/MM/YYYY HH:mm" viewRenderers={{ hours: renderTimeViewClock, minutes: renderTimeViewClock, seconds: renderTimeViewClock }}
+                    slotProps={{ textField: { size: 'small', style: { backgroundColor: 'white', width: '200px' } } }}
                   />
                 </div>
-                
-                {/* BUTTON GROUP */}
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button 
-                    onClick={handleApplyHistoryFilter}
-                    style={{background: '#0b4a8b', color:'white', fontWeight: 'bold', border:'none', padding:'8px 16px', borderRadius:'4px', cursor:'pointer', marginRight:'10px', height: '40px' 
-                      }}
-                  >
-                    Apply Filter
+                  <button onClick={handleApplyHistoryFilter} style={{background: '#0b4a8b', color:'white', fontWeight: 'bold', border:'none', padding:'8px 16px', borderRadius:'4px', cursor:'pointer', height: '38px' }}>Apply Filter</button>
+                  <button onClick={handleClearHistoryFilter} style={{ padding: '8px 16px', background: '#fff', fontWeight: 'bold', color: '#333', border: '1px solid #ddd', borderRadius: '6px', cursor: 'pointer', height: '38px' }}>Clear</button>
+                  <button onClick={handleExportHistoryCSV} style={{ padding: '8px 16px', background: '#28a745', color: 'white', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', height: '38px' }}>
+                    <Download size={16} /> Export Data 
                   </button>
-                  <button 
-                    onClick={handleClearHistoryFilter}
-                    style={{ 
-                      padding: '8px 16px', 
-                      background: '#fff', 
-                      fontWeight: 'bold',
-                      color: '#333', 
-                      border: '1px solid #ddd', 
-                      borderRadius: '6px', 
-                      cursor: 'pointer',
-                      height: '40px'
-                    }}
-                  >
-                    Clear
-                  </button>
-                  <button 
-                    onClick={handleExportHistoryCSV}
-                    style={{ 
-                      padding: '8px 16px', 
-                      background: '#28a745', 
-                      color: 'white', 
-                      fontWeight: 'bold',
-                      border: 'none', 
-                      borderRadius: '6px', 
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      height: '40px'
-                    }}
-                  >
-                    <Download size={18} /> Export Data </button>
                 </div>
               </div>
 
@@ -713,23 +699,15 @@ export default function Parts() {
               <div className="history-scroll-container">
                 <table className="history-table">
                   <thead>
-                    <tr>
-                      <th>No.</th>
-                      <th>Timestamp</th>
-                      <th>Status</th>
-                      <th>Manpower</th>
-                    </tr>
+                    <tr><th>No.</th><th>Timestamp</th><th>Status</th><th>Manpower</th></tr>
                   </thead>
                   <tbody>
                     {selectedPartHistory.history
                       .filter(log => {
-                        // Filter Logic
                         if (!activeHistoryStart && !activeHistoryEnd) return true;
-                        
                         const logDate = new Date(log.created_at);
                         const start = activeHistoryStart ? new Date(activeHistoryStart) : null;
                         const end = activeHistoryEnd ? new Date(activeHistoryEnd) : null;
-                        
                         if (start && logDate < start) return false;
                         if (end && logDate > end) return false;
                         return true;
@@ -738,28 +716,12 @@ export default function Parts() {
                         <tr key={i}>
                           <td>{i + 1}</td>
                           <td>
-                            {new Date(log.created_at).toLocaleString("en-GB", { 
-                              year: 'numeric', month: '2-digit', day: '2-digit', 
-                              hour: '2-digit', minute: '2-digit', second: '2-digit',
-                              hour12: false 
-                            })}
+                            {new Date(log.created_at).toLocaleString("en-GB", { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
                           </td>
                           <td>
                             {(() => {
                               const rawAction = log.action ? log.action.toLowerCase() : "";
-                              let displayLabel = "Not Working";
-                              let statusClass = "status-not-working";
-
-                              if (rawAction === "start" || rawAction === "working") {
-                                displayLabel = "Working";
-                                statusClass = "status-working";
-                              }
-
-                              return (
-                                <span className={`status-badge ${statusClass}`}>
-                                  {displayLabel}
-                                </span>
-                              );
+                              return <span className={`status-badge ${rawAction === 'start' || rawAction === 'working' ? 'status-working' : 'status-not-working'}`}>{rawAction === 'start' || rawAction === 'working' ? 'Working' : 'Not Working'}</span>;
                             })()}
                           </td>
                           <td>{log.name_manpower}</td>
@@ -773,14 +735,13 @@ export default function Parts() {
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* QR Code Modal */}
       {showQrModal && (
-        <>
-          <div className="modal-overlay" onClick={() => setShowQrModal(false)}></div>
-          <div className="modal">
+        <div className="modal-overlay" onClick={() => setShowQrModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>QR Code</h2>
               <button className="modal-close" onClick={() => setShowQrModal(false)}><X size={24} /></button>
@@ -793,7 +754,7 @@ export default function Parts() {
               <button className="btn-cancel" onClick={() => setShowQrModal(false)}>Close</button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </LocalizationProvider>
   );

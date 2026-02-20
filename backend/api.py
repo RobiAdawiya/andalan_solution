@@ -4,6 +4,8 @@ from pydantic import BaseModel  # Ditambahkan untuk menangani skema data
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
+from zoneinfo import ZoneInfo
+from typing import List, Dict, Optional
 
 # Import logic dari main.py
 from main import system
@@ -317,56 +319,51 @@ async def put_editmanpower(data: EditManpower):
 
 # 9. POST Add Part/Product
 class addproduct(BaseModel):
+    wo_number: str
     machine_name: str
     name_product: str
-    # start_date: datetime 
+    closed: bool = True
 
 @app.post("/addproduct")
 async def post_addproduct(data: addproduct):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        cur.execute(
-            "SELECT 1 FROM product WHERE machine_name=%s AND name_product=%s",
-            (data.machine_name, data.name_product)
-        )
-        if cur.fetchone():
-            return {"status": "error", "message": "Product already exists"}
+        current_time = datetime.now(ZoneInfo("Asia/Jakarta"))
 
-        # 1. Insert ke table product
-        cur.execute(
-            """
-            INSERT INTO product (machine_name, name_product)
-            VALUES (%s, %s)
-            """,
-            (data.machine_name, data.name_product)
-        )
+        # 1. Cek & Insert ke table product (Master)
+        cur.execute("SELECT 1 FROM product WHERE machine_name=%s AND name_product=%s", (data.machine_name, data.name_product))
+        if not cur.fetchone():
+            cur.execute("INSERT INTO product (machine_name, name_product) VALUES (%s, %s)", (data.machine_name, data.name_product))
 
-        # 2. Insert ke table log_product
-        # KITA GENERATE WAKTU SEKARANG DISINI
-        current_time = datetime.now() 
+        # 2. Tangani Work Order
+        wo_num = data.wo_number.strip()
+        if wo_num:
+            cur.execute("SELECT 1 FROM work_orders WHERE wo_number = %s", (wo_num,))
+            if not cur.fetchone():
+                cur.execute("INSERT INTO work_orders (wo_number, created_at) VALUES (%s, %s)", (wo_num, current_time))
+                
+            cur.execute("SELECT 1 FROM work_order_details WHERE wo_number=%s AND machine_name=%s AND product_name=%s", 
+                        (wo_num, data.machine_name, data.name_product))
+            if not cur.fetchone():
+                cur.execute("""
+                    INSERT INTO work_order_details (wo_number, machine_name, product_name, closed)
+                    VALUES (%s, %s, %s, %s)
+                """, (wo_num, data.machine_name, data.name_product, data.closed))
+            else:
+                 cur.execute("""
+                    UPDATE work_order_details SET closed = %s
+                    WHERE wo_number=%s AND machine_name=%s AND product_name=%s
+                """, (data.closed, wo_num, data.machine_name, data.name_product))
 
-        cur.execute(
-            """
-            INSERT INTO log_product 
-            (machine_name, name_product, name_manpower, created_at, action) 
+        # 3. Insert ke table log_product
+        cur.execute("""
+            INSERT INTO log_product (machine_name, name_product, name_manpower, created_at, action) 
             VALUES (%s, %s, %s, %s, %s)
-            """,
-            (
-                data.machine_name, 
-                data.name_product, 
-                "admin", 
-                current_time, # Gunakan variable waktu yang baru dibuat
-                "stop"
-            )
-        )
+        """, (data.machine_name, data.name_product, "admin", current_time, "stop"))
 
         conn.commit()
-
-        return {
-            "status": "success", 
-            "message": "Product & log berhasil ditambahkan"
-        }
+        return {"status": "success", "message": "Product & log berhasil ditambahkan"}
 
     except Exception as e:
         conn.rollback()
@@ -428,74 +425,61 @@ async def delete_product(data: DeleteProduct):
 
 # 11. PUT Edit Parts/Product
 class EditProduct(BaseModel):
-    old_machine_name: str  # KUNCI PENCARIAN (Original)
-    old_name_product: str  # KUNCI PENCARIAN (Original)
-    new_machine_name: str  # DATA UPDATE
-    new_name_product: str  # DATA UPDATE
+    old_machine_name: str
+    old_name_product: str
+    new_machine_name: str
+    new_name_product: str
+    new_wo_number: str
+    new_closed: bool
 
 @app.put("/editproduct")
 async def put_editproduct(data: EditProduct):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        # 1. Cek keberadaan product menggunakan DATA LAMA
-        #    Kita cari data 'sebelum diedit' untuk memastikan barisnya ada.
+        # 1. Update Master Product
         cur.execute(
-            "SELECT machine_name FROM product WHERE machine_name = %s AND name_product = %s",
-            (data.old_machine_name, data.old_name_product)
+            "UPDATE product SET machine_name = %s, name_product = %s WHERE machine_name = %s AND name_product = %s",
+            (data.new_machine_name, data.new_name_product, data.old_machine_name, data.old_name_product)
         )
-        if not cur.fetchone():
-            raise HTTPException(
-                status_code=404, 
-                detail="Product tidak ditemukan (Data asli mungkin sudah berubah/terhapus)"
-            )
+        
+        # 2. Hapus dari detail WO lama
+        cur.execute("DELETE FROM work_order_details WHERE machine_name = %s AND product_name = %s", 
+                    (data.old_machine_name, data.old_name_product))
+        
+        # 3. Jika ada WO baru, masukkan ke detail
+        wo_num = data.new_wo_number.strip() if data.new_wo_number else ""
+        if wo_num != "":
+            cur.execute("SELECT 1 FROM work_orders WHERE wo_number = %s", (wo_num,))
+            if not cur.fetchone():
+                cur.execute("INSERT INTO work_orders (wo_number, created_at) VALUES (%s, NOW())", (wo_num,))
+                
+            cur.execute("""
+                INSERT INTO work_order_details (wo_number, machine_name, product_name, closed)
+                VALUES (%s, %s, %s, %s)
+            """, (wo_num, data.new_machine_name, data.new_name_product, data.new_closed))
 
-        # 2. Update Product
-        #    SET data BARU, WHERE data LAMA
-        cur.execute(
-            """
-            UPDATE product
-            SET machine_name = %s, 
-                name_product = %s
-            WHERE machine_name = %s AND name_product = %s
-            """,
-            (
-                data.new_machine_name, data.new_name_product,  # Nilai Baru
-                data.old_machine_name, data.old_name_product   # Kondisi Lama
+        # 4. CLEANUP WO (MENGGUNAKAN 'NOT EXISTS' AGAR LEBIH AMAN DAN TIDAK ERROR 500)
+        cur.execute("""
+            DELETE FROM work_orders w 
+            WHERE NOT EXISTS (
+                SELECT 1 FROM work_order_details wd WHERE wd.wo_number = w.wo_number
             )
-        )
+        """)
 
-        # 3. Insert LOG
-        #    Gunakan data BARU untuk log, karena itu status terkini
+        # 5. Insert LOG
         cur.execute(
-            """
-            INSERT INTO log_product
-            (machine_name, name_product, action, name_manpower, created_at)
-            VALUES (%s, %s, %s, %s, NOW())
-            """,
-            (
-                data.new_machine_name, 
-                data.new_name_product, 
-                "stop",  # Sesuai request Anda, action stop dicatat saat edit
-                "admin"
-            )
+            "INSERT INTO log_product (machine_name, name_product, action, name_manpower, created_at) VALUES (%s, %s, %s, %s, NOW())",
+            (data.new_machine_name, data.new_name_product, "stop", "admin")
         )
 
         conn.commit()
+        return {"status": "success", "message": "Product berhasil diperbarui"}
 
-        return {
-            "status": "success",
-            "message": "Product berhasil diperbarui"
-        }
-
-    except HTTPException:
-        raise
     except Exception as e:
         conn.rollback()
-        # Handle jika update menyebabkan duplikat data (misal mengubah jadi nama yg sudah ada)
-        if "duplicate key" in str(e).lower(): 
-             raise HTTPException(status_code=400, detail="Product dengan nama/mesin tersebut sudah ada!")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"DATABASE ERROR (EDIT PRODUCT): {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cur.close()
         conn.close()
@@ -679,6 +663,139 @@ def get_filtered_machine_logs(start_date: str = None, end_date: str = None, mach
         return logs
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+# 19. work order
+def get_wib_now():
+    return datetime.now(ZoneInfo("Asia/Jakarta"))
+
+class DetailItemSchema(BaseModel):
+    machine: str
+    product: str
+
+class WorkOrderSchema(BaseModel):
+    woNumber: str
+    device: str
+    details: List[DetailItemSchema]
+    status: str
+    date: str
+
+class WorkOrderResponse(BaseModel):
+    no: int
+    woNumber: str
+    date: Optional[str]
+    parts: List[Dict]
+
+# 19.1. GET ALL WORK ORDERS
+@app.get("/api/work-orders", response_model=List[WorkOrderResponse])
+def get_work_orders():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    # UBAH wo.start_date dan wo.end_date menjadi wo.created_at
+    query = """
+        SELECT 
+            wo.id,
+            wo.wo_number,
+            wo.created_at, 
+            COALESCE(json_agg(
+                json_build_object(
+                    'machine', wod.machine_name,
+                    'name', wod.product_name,
+                    'closed', wod.closed,
+                    'status', COALESCE(lp.action, 'Pending')
+                )
+            ) FILTER (WHERE wod.product_name IS NOT NULL), '[]') AS parts
+        FROM work_orders wo
+        LEFT JOIN work_order_details wod ON wod.wo_number = wo.wo_number
+        LEFT JOIN LATERAL (
+            SELECT action
+            FROM log_product
+            WHERE name_product = wod.product_name 
+              AND machine_name = wod.machine_name
+            ORDER BY created_at DESC
+            LIMIT 1
+        ) lp ON TRUE
+        GROUP BY wo.id
+        ORDER BY wo.id DESC
+    """
+
+    cur.execute(query)
+    rows = cur.fetchall()
+
+    result = []
+    for r in rows:
+        result.append({
+            "no": r["id"],
+            "woNumber": r["wo_number"],
+            "date": r["created_at"].isoformat() if r["created_at"] else None,
+            "end_date": None,
+            "parts": r["parts"]
+        })
+
+    cur.close()
+    conn.close()
+    return result
+
+# 19.2. GET LOGS SPECIFIC WO
+@app.get("/api/work-orders/{wo_number}/logs")
+def get_work_order_logs(wo_number: str):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    # Ambil logs berdasarkan WO number -> Detail (Machine+Product) -> Log Product
+    query = """
+        SELECT lp.machine_name, lp.name_product, lp.action, lp.created_at
+        FROM log_product lp
+        JOIN work_order_details wod 
+          ON lp.name_product = wod.product_name 
+          AND lp.machine_name = wod.machine_name
+        WHERE wod.wo_number = %s
+        ORDER BY lp.created_at ASC
+    """
+
+    cur.execute(query, (wo_number,))
+    rows = cur.fetchall()
+    
+    logs = {}
+
+    for r in rows:
+        key = f"{r['machine_name']}||{r['name_product']}"
+        logs.setdefault(key, []).append({
+            "action": r["action"],
+            "time": r["created_at"].isoformat() if r["created_at"] else None
+        })
+
+    cur.close()
+    conn.close()
+    return logs
+
+# 20. TOGGLE CLOSED
+class ToggleClosed(BaseModel):
+    machine_name: str
+    name_product: str
+    closed: bool
+
+@app.put("/toggle_closed")
+async def toggle_closed(data: ToggleClosed):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        # Update langsung status closed di database
+        cur.execute("""
+            UPDATE work_order_details 
+            SET closed = %s 
+            WHERE machine_name = %s AND product_name = %s
+        """, (data.closed, data.machine_name, data.name_product))
+        conn.commit()
+        return {"status": "success", "message": "Status closed updated"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
 
 # --- ENDPOINTS VALIDATION (EXISTING) ---
 @app.get("/validate/manpower")
