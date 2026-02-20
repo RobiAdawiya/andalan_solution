@@ -353,17 +353,7 @@ export default function WorkOrder() {
                 <div className="parts-vertical-list">
                   {wo.parts && wo.parts.length > 0 ? (
                     wo.parts.map((p, i) => {
-                      // 1. JIKA PART SUDAH CLOSED
-                      if (p.closed) {
-                         return (
-                           <div key={i} style={{backgroundColor: '#f5f5f5', color: '#666', border: '1px solid #ddd', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px'}}>
-                              <span style={{flex:1}}>{p.name}</span>
-                              <span style={{fontSize:'9px', color:'#dc3545'}}>CLOSED</span>
-                           </div>
-                         )
-                      }
-
-                      // 2. JIKA PART MASIH OPEN
+                      // JIKA PART MASIH OPEN
                       const isWorking = p.status?.toLowerCase() === 'start';
                       const badgeStyle = {
                           backgroundColor: isWorking ? '#e8f5e9' : '#ffebee', 
@@ -440,21 +430,7 @@ export default function WorkOrder() {
                           <div className="machine-box-header"><Box size={16} /> <span>{productName}</span></div>
                             <div className="machine-box-content">
                              {machineParts.map((p, idx) => {
-                                // 1. JIKA PART CLOSED (TAMPILKAN TEKS SAJA, TANPA CHART)
-                                if (p.closed) {
-                                   return (
-                                     <div key={idx} style={{marginBottom:'20px'}}>
-                                        <div className="timeline-header" style={{marginBottom:'5px', fontSize:'12px', fontWeight:'bold', color:'#555', display:'flex', alignItems:'center', gap:'8px'}}>
-                                           <span style={{display:'flex', alignItems:'center', gap:'4px'}}><HardDrive size={12}/> {p.machine}</span>
-                                        </div>
-                                        <div style={{ padding: '12px', background: '#ffebee', color: '#c62828', borderRadius: '6px', textAlign: 'center', fontWeight: 'bold', fontSize: '12px', border: '1px dashed #ffcdd2' }}>
-                                           {p.name} = CLOSED
-                                        </div>
-                                     </div>
-                                   );
-                                }
-
-                                // 2. JIKA NORMAL / OPEN (RENDER CHART SEPERTI BIASA)
+                                // JIKA NORMAL / OPEN (RENDER CHART SEPERTI BIASA)
                                 const key = `${p.machine}||${p.name}`;
                                 const logs = partLogs[key] || [];
                                 const timelineSegments = generatePartTimeline(p.machine, p.name, logs, filterDate.start, filterDate.end, selectedWO.date);

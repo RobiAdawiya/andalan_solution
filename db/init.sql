@@ -65,9 +65,9 @@ CREATE TABLE work_order_details (
     id SERIAL PRIMARY KEY,
     wo_number VARCHAR(50) REFERENCES work_orders(wo_number) ON DELETE CASCADE,
     machine_name VARCHAR(100) NOT NULL, 
-    product_name VARCHAR(100) NOT NULL,
-    closed BOOLEAN DEFAULT FALSE
+    product_name VARCHAR(100) NOT NULL
 );
+
 CREATE VIEW v_work_order_details AS
 SELECT 
     id, 

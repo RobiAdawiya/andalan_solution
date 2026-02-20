@@ -100,7 +100,23 @@ export default function Device() {
 
   // FIXED: Added 'e' parameter
   const handleSaveEdit = async (e) => {
-    e.preventDefault(); // Now 'e' is defined!
+    e.preventDefault(); 
+    if (
+      editingDevice &&
+      editForm.machine_name === editingDevice.machine_name &&
+      editForm.serial_number === editingDevice.serial_number
+    ) {
+      Swal.fire({
+        icon: 'info', 
+        title: 'No Changes', 
+        text: "There's no modified things yet.", 
+        timer: 2000, 
+        showConfirmButton: false
+      });
+      setShowEditModal(false);
+      return;
+    }
+
     try {
       const res = await updateDevice(editForm);
       if (res.status === "success") {
@@ -197,7 +213,7 @@ export default function Device() {
 
       {/* TABLE SECTION */}
       <div className="table-container">
-        {loading ? <p className="loading-state">Loading...</p> : (
+        {loading ? <p className="text-center" style={{padding: '2rem'}}>Syncing with Database...</p> : (
           <table className="device-table">
             <thead>
               <tr>

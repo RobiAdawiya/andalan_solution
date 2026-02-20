@@ -144,8 +144,20 @@ def get_all_products():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Mengambil data dari tabel master product (asumsi nama tabel: product)
-        query = "SELECT machine_name, name_product FROM product ORDER BY name_product ASC"
+        # JOIN dengan work_order_details untuk mendapatkan wo_number
+        query = """
+            SELECT 
+                p.id,
+                p.machine_name, 
+                p.name_product,
+                wod.wo_number
+            FROM product p
+            LEFT JOIN work_order_details wod 
+              ON p.machine_name = wod.machine_name 
+             AND p.name_product = wod.product_name
+            ORDER BY p.name_product ASC
+        """
+
         cur.execute(query)
         data = cur.fetchall()
         
@@ -322,7 +334,6 @@ class addproduct(BaseModel):
     wo_number: str
     machine_name: str
     name_product: str
-    closed: bool = True
 
 @app.post("/addproduct")
 async def post_addproduct(data: addproduct):
@@ -347,14 +358,9 @@ async def post_addproduct(data: addproduct):
                         (wo_num, data.machine_name, data.name_product))
             if not cur.fetchone():
                 cur.execute("""
-                    INSERT INTO work_order_details (wo_number, machine_name, product_name, closed)
-                    VALUES (%s, %s, %s, %s)
-                """, (wo_num, data.machine_name, data.name_product, data.closed))
-            else:
-                 cur.execute("""
-                    UPDATE work_order_details SET closed = %s
-                    WHERE wo_number=%s AND machine_name=%s AND product_name=%s
-                """, (data.closed, wo_num, data.machine_name, data.name_product))
+                    INSERT INTO work_order_details (wo_number, machine_name, product_name)
+                    VALUES (%s, %s, %s)
+                """, (wo_num, data.machine_name, data.name_product))
 
         # 3. Insert ke table log_product
         cur.execute("""
@@ -430,7 +436,6 @@ class EditProduct(BaseModel):
     new_machine_name: str
     new_name_product: str
     new_wo_number: str
-    new_closed: bool
 
 @app.put("/editproduct")
 async def put_editproduct(data: EditProduct):
@@ -455,9 +460,9 @@ async def put_editproduct(data: EditProduct):
                 cur.execute("INSERT INTO work_orders (wo_number, created_at) VALUES (%s, NOW())", (wo_num,))
                 
             cur.execute("""
-                INSERT INTO work_order_details (wo_number, machine_name, product_name, closed)
-                VALUES (%s, %s, %s, %s)
-            """, (wo_num, data.new_machine_name, data.new_name_product, data.new_closed))
+                INSERT INTO work_order_details (wo_number, machine_name, product_name)
+                VALUES (%s, %s, %s)
+            """, (wo_num, data.new_machine_name, data.new_name_product))
 
         # 4. CLEANUP WO (MENGGUNAKAN 'NOT EXISTS' AGAR LEBIH AMAN DAN TIDAK ERROR 500)
         cur.execute("""
@@ -694,18 +699,17 @@ def get_work_orders():
 
     # UBAH wo.start_date dan wo.end_date menjadi wo.created_at
     query = """
-        SELECT 
-            wo.id,
-            wo.wo_number,
-            wo.created_at, 
-            COALESCE(json_agg(
-                json_build_object(
-                    'machine', wod.machine_name,
-                    'name', wod.product_name,
-                    'closed', wod.closed,
-                    'status', COALESCE(lp.action, 'Pending')
-                )
-            ) FILTER (WHERE wod.product_name IS NOT NULL), '[]') AS parts
+            SELECT 
+                wo.id,
+                wo.wo_number,
+                wo.created_at, 
+                COALESCE(json_agg(
+                    json_build_object(
+                        'machine', wod.machine_name,
+                        'name', wod.product_name,
+                        'status', COALESCE(lp.action, 'Pending')
+                    )
+                ) FILTER (WHERE wod.product_name IS NOT NULL), '[]') AS parts
         FROM work_orders wo
         LEFT JOIN work_order_details wod ON wod.wo_number = wo.wo_number
         LEFT JOIN LATERAL (
@@ -769,33 +773,6 @@ def get_work_order_logs(wo_number: str):
     cur.close()
     conn.close()
     return logs
-
-# 20. TOGGLE CLOSED
-class ToggleClosed(BaseModel):
-    machine_name: str
-    name_product: str
-    closed: bool
-
-@app.put("/toggle_closed")
-async def toggle_closed(data: ToggleClosed):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    try:
-        # Update langsung status closed di database
-        cur.execute("""
-            UPDATE work_order_details 
-            SET closed = %s 
-            WHERE machine_name = %s AND product_name = %s
-        """, (data.closed, data.machine_name, data.name_product))
-        conn.commit()
-        return {"status": "success", "message": "Status closed updated"}
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        cur.close()
-        conn.close()
-
 
 # --- ENDPOINTS VALIDATION (EXISTING) ---
 @app.get("/validate/manpower")

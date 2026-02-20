@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Monitor, Users, Wrench, ClipboardList, Calendar, 
   Activity, X, Download, Zap, Thermometer, Battery, TrendingUp, 
@@ -160,6 +160,11 @@ export default function Dashboard() {
   const [tooltipData, setTooltipData] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
+
+  const parsedTempStart = useMemo(() => tempStartDate ? dayjs(tempStartDate) : null, [tempStartDate]);
+  const parsedTempEnd = useMemo(() => tempEndDate ? dayjs(tempEndDate) : null, [tempEndDate]);
+  const parsedModalStart = useMemo(() => modalStartDate ? dayjs(modalStartDate) : null, [modalStartDate]);
+  const parsedModalEnd = useMemo(() => modalEndDate ? dayjs(modalEndDate) : null, [modalEndDate]);
 
   // --- TOOLTIP HANDLERS ---
   const handleMouseEnterSegment = (e, segment) => {
@@ -439,7 +444,9 @@ export default function Dashboard() {
       const pivotByMachine = {};
       machineLogs.forEach((log) => {
         if (!pivotByMachine[log.machine_id]) pivotByMachine[log.machine_id] = {};
-        pivotByMachine[log.machine_id][log.tag_name] = log.tag_value;
+        if (pivotByMachine[log.machine_id][log.tag_name] === undefined) {
+          pivotByMachine[log.machine_id][log.tag_name] = log.tag_value;
+        }
       });
 
       const mappedDevices = registeredDevices.map((device, index) => {
@@ -679,7 +686,7 @@ export default function Dashboard() {
                     <div className="filter-group">
                       <DateTimePicker 
                         label="START DATE & TIME"
-                        value={tempStartDate ? dayjs(tempStartDate) : null}
+                        value={parsedTempStart}
                         onChange={(newValue) => {
                           if (!newValue) setTempStartDate("");
                           else if (newValue.isValid()) setTempStartDate(newValue.format('YYYY-MM-DDTHH:mm'));
@@ -708,7 +715,7 @@ export default function Dashboard() {
                     <div className="filter-group">
                       <DateTimePicker 
                         label="END DATE & TIME"
-                        value={tempEndDate ? dayjs(tempEndDate) : null}
+                        value={parsedTempEnd}
                         onChange={(newValue) => {
                           if (!newValue) setTempEndDate("");
                           else if (newValue.isValid()) setTempEndDate(newValue.format('YYYY-MM-DDTHH:mm'));
@@ -855,9 +862,9 @@ export default function Dashboard() {
               <div className="history-section">
                 <div className="date-range-container" style={{display:'flex', gap:'10px', alignItems:'center'}}>
                   <div className="date-input-group">
-                <DateTimePicker 
+                  <DateTimePicker 
                   label="START DATE & TIME"
-                  value={modalStartDate ? dayjs(modalStartDate) : null}
+                  value={parsedModalStart} // <-- Use the new locked variable
                   onChange={(newValue) => {
                     if (!newValue) setModalStartDate("");
                     else if (newValue.isValid()) setModalStartDate(newValue.format('YYYY-MM-DDTHH:mm'));
@@ -892,7 +899,7 @@ export default function Dashboard() {
                   <div className="date-input-group">
                     <DateTimePicker 
                       label="END DATE & TIME"
-                      value={modalEndDate ? dayjs(modalEndDate) : null}
+                      value={parsedModalEnd} // <-- Use the new locked variable
                       onChange={(newValue) => {
                         if (!newValue) setModalEndDate("");
                         else if (newValue.isValid()) setModalEndDate(newValue.format('YYYY-MM-DDTHH:mm'));
