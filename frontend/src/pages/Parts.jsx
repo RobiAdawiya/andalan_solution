@@ -9,48 +9,11 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { renderTimeViewClock } from '@mui/x-date-pickers/timeViewRenderers';
-import { styled } from '@mui/material/styles';
-import Switch from '@mui/material/Switch';
 import dayjs from 'dayjs';
 
 // API Imports
 import { getProductList, getProductLogs } from "../services/api";
 import Swal from "sweetalert2";
-
-const IOSSwitch = styled((props) => (
-  <Switch focusVisibleClassName=".Mui-focusVisible" disableRipple {...props} />
-))(({ theme }) => ({
-  width: 42,
-  height: 26,
-  padding: 0,
-  '& .MuiSwitch-switchBase': {
-    padding: 0,
-    margin: 2,
-    transitionDuration: '300ms',
-    '&.Mui-checked': {
-      transform: 'translateX(16px)',
-      color: '#fff',
-      '& + .MuiSwitch-track': {
-        backgroundColor: '#dc3545', // YES = MERAH
-        opacity: 1,
-        border: 0,
-      },
-    },
-  },
-  '& .MuiSwitch-thumb': {
-    boxSizing: 'border-box',
-    width: 22,
-    height: 22,
-  },
-  '& .MuiSwitch-track': {
-    borderRadius: 26 / 2,
-    backgroundColor: '#28a745', // NO = HIJAU
-    opacity: 1,
-    transition: theme.transitions.create(['background-color'], {
-      duration: 500,
-    }),
-  },
-}));
 
 export default function Parts() {
   // --- 1. STATE MANAGEMENT ---
@@ -85,8 +48,7 @@ export default function Parts() {
   const [formData, setFormData] = useState({
     wo_number: "",
     machine_name: "",
-    name_product: "",
-    closed: true
+    name_product: ""
   });
 
   // Pagination State
@@ -191,7 +153,7 @@ export default function Parts() {
 
   // --- HANDLE ADD ---
   const handleAddPart = () => {
-    setFormData({ wo_number: "", machine_name: "", name_product: "", closed: true }); 
+    setFormData({ wo_number: "", machine_name: "", name_product: "" }); 
     setShowAddModal(true);
   };
 
@@ -222,8 +184,7 @@ export default function Parts() {
     setFormData({
       wo_number: part.wo_number || "",
       machine_name: part.machine_name,
-      name_product: part.name_product,
-      closed: part.closed || false
+      name_product: part.name_product
     });
     setShowEditModal(true);
   };
@@ -253,8 +214,7 @@ export default function Parts() {
               old_name_product: editingPart.name_product,
               new_machine_name: formData.machine_name, 
               new_name_product: formData.name_product, 
-              new_wo_number: formData.wo_number,
-              new_closed: formData.closed        
+              new_wo_number: formData.wo_number
             })
           });
 
@@ -269,32 +229,6 @@ export default function Parts() {
           Swal.fire('Error', 'Error connecting to server.', 'error');
         }
     };
-        
-  // --- HANDLE TOGGLE CLOSED (LANGSUNG DARI TABEL) ---
-  const handleToggleClosed = async (part) => {
-    const newClosedStatus = !part.closed;
-    try {
-      const response = await fetch("/api/toggle_closed", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          machine_name: part.machine_name,
-          name_product: part.name_product,
-          closed: newClosedStatus
-        })
-      });
-
-      if (response.ok) {
-        setPartsData(prev => prev.map(p => 
-          p.no === part.no ? { ...p, closed: newClosedStatus } : p
-        ));
-      } else {
-        Swal.fire('Error', 'Gagal mengubah status closed', 'error');
-      }
-    } catch (error) {
-      Swal.fire('Error', 'Error koneksi ke server', 'error');
-    }
-  };
 
   // --- HANDLE DELETE ---
   const handleDelete = async (part) => {
@@ -393,7 +327,7 @@ export default function Parts() {
       setQrDataUrl(dataUrl);
       setShowQrModal(true);
     } catch (err) {
-      setQrError("Gagal generate QR Code.");
+      setQrError("Failed to generate QR Code.");
     } finally {
       setQrGenerating(false);
     }
@@ -404,12 +338,11 @@ export default function Parts() {
     doc.addImage(qrDataUrl, "PNG", 50, 40, 100, 100);
     doc.text(`Machine: ${qrPayload.machine_name}`, 55, 150);
     doc.text(`Product: ${qrPayload.name_product}`, 55, 160);
-    // Format Nama: QR_nama-part_nama-machine
     doc.save(`QR_${qrPayload.name_product}_${qrPayload.machine_name}.pdf`);
   };
 
   // --- 5. RENDER ---
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <div className="loading-state">Loading...</div>;
 
   const getSortIcon = (columnName) => {
     if (sortConfig.key !== columnName) return <span style={{opacity: 0.3, marginLeft:'4px'}}>↕</span>;
@@ -459,23 +392,19 @@ export default function Parts() {
           <thead>
             <tr>
               <th>No.</th>
-              {/* KOLOM SORTING (WO NUMBER) */}
               <th onClick={() => handleSort('wo_number')} style={{cursor: 'pointer', whiteSpace:'nowrap'}}>
                 WO Number {getSortIcon('wo_number')}
               </th>
-              {/* KOLOM SORTING (PRODUCT NAME) */}
               <th onClick={() => handleSort('name_product')} style={{cursor: 'pointer', whiteSpace:'nowrap'}}>
                 Product Name {getSortIcon('name_product')}
               </th>
-              {/* Kolom Machine Name Dihilangkan dari tabel */}
               <th>Status</th>
-              <th className="text-center">Closed</th> 
               <th className="text-center">Action</th>
             </tr>
           </thead>
           <tbody>
             {currentData.length === 0 ? (
-              <tr><td colSpan="6" style={{ textAlign: "center" }}>No data available</td></tr>
+              <tr><td colSpan="5" style={{ textAlign: "center" }}>No data available</td></tr>
             ) : (
               currentData.map((part, index) => (
                 <tr key={part.no}>
@@ -495,21 +424,8 @@ export default function Parts() {
                       return <span className={`status-badge ${statusClass}`}>{displayLabel}</span>;
                     })()}
                   </td>
-                  
-                  {/* BUTTON SWITCH CLOSED */}
-                  <td className="text-center">
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                      <IOSSwitch 
-                        checked={part.closed} 
-                        onChange={() => handleToggleClosed(part)} 
-                      />
-                      <span style={{ fontSize: '13px', fontWeight: 'bold', color: part.closed ? '#dc3545' : '#28a745', minWidth: '25px', textAlign: 'left' }}>
-                        {part.closed ? "Yes" : "No"}
-                      </span>
-                    </div>
-                  </td>
 
-                  {/* TOMBOL ACTION LENGKAP */}
+                  {/* TOMBOL ACTION */}
                   <td className="text-center">
                     <div className="action-buttons">
                       <button className="action-btn btn-qr" onClick={() => handleViewQR(part)} title="View QR">
@@ -672,7 +588,10 @@ export default function Parts() {
                   <DateTimePicker 
                     label="START DATE & TIME"
                     value={historyStart ? dayjs(historyStart) : null}
-                    onChange={(newValue) => setHistoryStart(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                    onChange={(newValue) => {
+                      if (!newValue) setHistoryStart("");
+                      else if (newValue.isValid()) setHistoryStart(newValue.format('YYYY-MM-DDTHH:mm'));
+                    }}
                     ampm={false} format="DD/MM/YYYY HH:mm" viewRenderers={{ hours: renderTimeViewClock, minutes: renderTimeViewClock, seconds: renderTimeViewClock }}
                     slotProps={{ textField: { size: 'small', style: { backgroundColor: 'white', width: '200px' } } }}
                   />
@@ -681,7 +600,10 @@ export default function Parts() {
                   <DateTimePicker 
                     label="END DATE & TIME"
                     value={historyEnd ? dayjs(historyEnd) : null}
-                    onChange={(newValue) => setHistoryEnd(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                    onChange={(newValue) => {
+                      if (!newValue) setHistoryEnd("");
+                      else if (newValue.isValid()) setHistoryEnd(newValue.format('YYYY-MM-DDTHH:mm'));
+                    }}
                     ampm={false} format="DD/MM/YYYY HH:mm" viewRenderers={{ hours: renderTimeViewClock, minutes: renderTimeViewClock, seconds: renderTimeViewClock }}
                     slotProps={{ textField: { size: 'small', style: { backgroundColor: 'white', width: '200px' } } }}
                   />

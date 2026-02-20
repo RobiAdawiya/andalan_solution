@@ -679,8 +679,11 @@ export default function Dashboard() {
                     <div className="filter-group">
                       <DateTimePicker 
                         label="START DATE & TIME"
-                        value={dayjs(tempStartDate)}
-                        onChange={(newValue) => setTempStartDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                        value={tempStartDate ? dayjs(tempStartDate) : null}
+                        onChange={(newValue) => {
+                          if (!newValue) setTempStartDate("");
+                          else if (newValue.isValid()) setTempStartDate(newValue.format('YYYY-MM-DDTHH:mm'));
+                        }}
                         ampm={false}
                         format="DD/MM/YYYY HH:mm"
                         viewRenderers={{
@@ -705,8 +708,11 @@ export default function Dashboard() {
                     <div className="filter-group">
                       <DateTimePicker 
                         label="END DATE & TIME"
-                        value={dayjs(tempEndDate)}
-                        onChange={(newValue) => setTempEndDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                        value={tempEndDate ? dayjs(tempEndDate) : null}
+                        onChange={(newValue) => {
+                          if (!newValue) setTempEndDate("");
+                          else if (newValue.isValid()) setTempEndDate(newValue.format('YYYY-MM-DDTHH:mm'));
+                        }}
                         ampm={false}
                         format="DD/MM/YYYY HH:mm"
                         viewRenderers={{
@@ -851,8 +857,11 @@ export default function Dashboard() {
                   <div className="date-input-group">
                 <DateTimePicker 
                   label="START DATE & TIME"
-                  value={dayjs(modalStartDate)}
-                  onChange={(newValue) => setModalStartDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                  value={modalStartDate ? dayjs(modalStartDate) : null}
+                  onChange={(newValue) => {
+                    if (!newValue) setModalStartDate("");
+                    else if (newValue.isValid()) setModalStartDate(newValue.format('YYYY-MM-DDTHH:mm'));
+                  }}
                   ampm={false}
                   format="DD/MM/YYYY HH:mm"
                   viewRenderers={{
@@ -883,8 +892,11 @@ export default function Dashboard() {
                   <div className="date-input-group">
                     <DateTimePicker 
                       label="END DATE & TIME"
-                      value={dayjs(modalEndDate)}
-                      onChange={(newValue) => setModalEndDate(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                      value={modalEndDate ? dayjs(modalEndDate) : null}
+                      onChange={(newValue) => {
+                        if (!newValue) setModalEndDate("");
+                        else if (newValue.isValid()) setModalEndDate(newValue.format('YYYY-MM-DDTHH:mm'));
+                      }}
                       ampm={false}
                       format="DD/MM/YYYY HH:mm"
                       viewRenderers={{

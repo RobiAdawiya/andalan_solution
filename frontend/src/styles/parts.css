@@ -120,14 +120,15 @@
 }
 
 /* ===== STATUS BADGES ===== */
-
+/* ===== STATUS BADGES ===== */
 .status-badge {
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.8rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
   font-weight: 600;
-  text-transform: capitalize;
-  /* text-transform: uppercase; */
+  display: inline-block;
+  min-width: 100px; /* Opsional: Biar lebar badge seragam */
+  text-align: center;
 }
 
 /* WORKING (HIJAU) */
@@ -175,14 +176,6 @@
 
 .action-btn.btn-qr {
   background: #0b4a8b;
-}
-
-.action-btn.btn-edit {
-  background: #ffc107;
-}
-
-.action-btn.btn-edit:hover {
-  background: #e0a800;
 }
 
 .action-btn.btn-qr:hover {
@@ -444,6 +437,50 @@
   color: #f44336;
   font-size: 0.9rem;
   margin: 10px 0;
+}
+
+/* --- SWITCH TOGGLE BUTTON (DI TABEL) --- */
+.switch-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #28a745; /* DEFAULT NO = HIJAU */
+  transition: .4s;
+  border-radius: 20px;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+input:checked + .slider {
+  background-color: #dc3545; /* YES = MERAH */
+}
+input:checked + .slider:before {
+  transform: translateX(20px);
 }
 
 /* 1. Container Pembungkus Scroll */

@@ -325,7 +325,7 @@ export default function ManPower() {
   };
 
   if (loading) {
-    return <div className="loading">Loading...</div>;
+    return <div className="loading-state">Loading...</div>;
   }
 
   return (
@@ -502,8 +502,11 @@ export default function ManPower() {
                 <div className="filter-group">
                   <DateTimePicker 
                     label="START DATE & TIME"
-                    value={historyStart ? dayjs(historyStart) : null}
-                    onChange={(newValue) => setHistoryStart(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                   value={historyStart ? dayjs(historyStart) : null}
+                    onChange={(newValue) => {
+                      if (!newValue) setHistoryStart("");
+                      else if (newValue.isValid()) setHistoryStart(newValue.format('YYYY-MM-DDTHH:mm'));
+                    }}
                     ampm={false}
                     format="DD/MM/YYYY HH:mm"
                     viewRenderers={{
@@ -518,7 +521,10 @@ export default function ManPower() {
                   <DateTimePicker 
                     label="END DATE & TIME"
                     value={historyEnd ? dayjs(historyEnd) : null}
-                    onChange={(newValue) => setHistoryEnd(newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '')}
+                    onChange={(newValue) => {
+                      if (!newValue) setHistoryEnd("");
+                      else if (newValue.isValid()) setHistoryEnd(newValue.format('YYYY-MM-DDTHH:mm'));
+                    }}
                     ampm={false}
                     format="DD/MM/YYYY HH:mm"
                     viewRenderers={{
