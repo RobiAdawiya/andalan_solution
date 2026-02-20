@@ -635,7 +635,7 @@ export default function Dashboard() {
         <div className="device-grid-wrapper">
           <div className="device-grid">
             {loading ? (
-              <div className="loading-state">Syncing with IoT Gateway...</div>
+              <div className="loading-state">Loading...</div>
             ) : (
               devices.map((device) => (
                 <DeviceCard key={device.id} device={device} onViewDetails={handleViewDetails} />

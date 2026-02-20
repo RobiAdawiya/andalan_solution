@@ -197,7 +197,7 @@ export default function Device() {
 
       {/* TABLE SECTION */}
       <div className="table-container">
-        {loading ? <p className="text-center" style={{padding: '2rem'}}>Syncing with Database...</p> : (
+        {loading ? <p className="text-center" style={{padding: '2rem'}}>Loading...</p> : (
           <table className="device-table">
             <thead>
               <tr>
