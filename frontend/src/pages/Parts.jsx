@@ -72,10 +72,19 @@ export default function Parts() {
         const devRes = await fetch("/api/devices");
         if (devRes.ok) {
           const devData = await devRes.json();
-          setDevices(devData);
+          // SAFETY CHECK: Make sure it's an array before setting state
+          if (Array.isArray(devData)) {
+            setDevices(devData);
+          } else if (devData && Array.isArray(devData.data)) {
+             // In case your API actually returns {"data": [...]}
+             setDevices(devData.data);
+          } else {
+             console.error("Expected devices to be an array, but got:", devData);
+             setDevices([]); // Fallback to empty array
+          }
         }
       } catch (err) {
-        console.error("Gagal mengambil data devices", err);
+        console.error("Failed to fetch devices data", err);
       }
 
       const [productsData, logsData] = await Promise.all([
@@ -83,8 +92,13 @@ export default function Parts() {
         getProductLogs(),
       ]);
 
-      const mappedProducts = productsData.map((item, index) => {
-        const partLogs = logsData
+      // SAFETY CHECK: Ensure productsData is an array
+      const safeProductsData = Array.isArray(productsData) ? productsData : (productsData?.data || []);
+      // SAFETY CHECK: Ensure logsData is an array
+      const safeLogsData = Array.isArray(logsData) ? logsData : (logsData?.data || []);
+
+      const mappedProducts = safeProductsData.map((item, index) => {
+        const partLogs = safeLogsData
           .filter(log => log.machine_name === item.machine_name && log.name_product === item.name_product)
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
@@ -96,7 +110,7 @@ export default function Parts() {
       });
 
       setPartsData(mappedProducts);
-      setAllLogs(logsData);
+      setAllLogs(safeLogsData);
     } catch (error) {
       console.error("Error fetching data:", error);
       Swal.fire('Error', 'Failed to fetch data from server.', 'error');

@@ -448,11 +448,18 @@ async def put_editproduct(data: EditProduct):
             (data.new_machine_name, data.new_name_product, data.old_machine_name, data.old_name_product)
         )
         
-        # 2. Hapus dari detail WO lama
+        # 2. UPDATE HISTORI LOG AGAR STATUS 'WORKING' TETAP BERTAHAN
+        # Ini memastikan jika nama mesin/produk diedit, history lamanya ikut terupdate dan tidak terputus
+        cur.execute(
+            "UPDATE log_product SET machine_name = %s, name_product = %s WHERE machine_name = %s AND name_product = %s",
+            (data.new_machine_name, data.new_name_product, data.old_machine_name, data.old_name_product)
+        )
+        
+        # 3. Hapus dari detail WO lama
         cur.execute("DELETE FROM work_order_details WHERE machine_name = %s AND product_name = %s", 
                     (data.old_machine_name, data.old_name_product))
         
-        # 3. Jika ada WO baru, masukkan ke detail
+        # 4. Jika ada WO baru, masukkan ke detail
         wo_num = data.new_wo_number.strip() if data.new_wo_number else ""
         if wo_num != "":
             cur.execute("SELECT 1 FROM work_orders WHERE wo_number = %s", (wo_num,))
@@ -464,19 +471,13 @@ async def put_editproduct(data: EditProduct):
                 VALUES (%s, %s, %s)
             """, (wo_num, data.new_machine_name, data.new_name_product))
 
-        # 4. CLEANUP WO (MENGGUNAKAN 'NOT EXISTS' AGAR LEBIH AMAN DAN TIDAK ERROR 500)
+        # 5. CLEANUP WO LAMA YANG KOSONG
         cur.execute("""
             DELETE FROM work_orders w 
             WHERE NOT EXISTS (
                 SELECT 1 FROM work_order_details wd WHERE wd.wo_number = w.wo_number
             )
         """)
-
-        # 5. Insert LOG
-        cur.execute(
-            "INSERT INTO log_product (machine_name, name_product, action, name_manpower, created_at) VALUES (%s, %s, %s, %s, NOW())",
-            (data.new_machine_name, data.new_name_product, "stop", "admin")
-        )
 
         conn.commit()
         return {"status": "success", "message": "Product berhasil diperbarui"}

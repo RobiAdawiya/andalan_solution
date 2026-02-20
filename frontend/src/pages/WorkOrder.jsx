@@ -433,7 +433,7 @@ export default function WorkOrder() {
                                 // JIKA NORMAL / OPEN (RENDER CHART SEPERTI BIASA)
                                 const key = `${p.machine}||${p.name}`;
                                 const logs = partLogs[key] || [];
-                                const timelineSegments = generatePartTimeline(p.machine, p.name, logs, filterDate.start, filterDate.end, selectedWO.date);
+                                const timelineSegments = generatePartTimeline(p.machine, p.name, logs, filterDate.start, filterDate.end);
                                 
                                 const stats = timelineSegments.reduce((acc, seg) => {
                                     if(seg.status==="WORKING") acc.start += seg.duration; 
