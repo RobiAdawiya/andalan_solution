@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { Expand, Shrink } from "lucide-react";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Device from "./pages/Device";
@@ -14,25 +15,69 @@ import { changePassword } from "./services/api";
 import Swal from "sweetalert2";
 
 function App() {
-  // MODIFIED: Check localStorage immediately to prevent "flash" of unauthenticated state
   const [isAuth, setIsAuth] = useState(() => localStorage.getItem("auth") === "true");
-  
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [time, setTime] = useState("");
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [username, setUsername] = useState("user");
 
-    // NEW: State for change password
+  // NEW: State for change password
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
+  // --- NEW: State for Fullscreen ---
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   const navigate = useNavigate();
   const location = useLocation();
 
+  // --- NEW: Fullscreen Logic ---
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
   useEffect(() => {
-    // We keep this to ensure state stays in sync
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === "F11") {
+        e.preventDefault(); 
+        toggleFullScreen();
+      }
+
+      if (e.key === "Escape") {
+        setShowUserMenu(false);
+
+        const closeButton = document.querySelector('.modal-close, .btn-cancel');
+        if (closeButton) {
+          closeButton.click(); 
+        }
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    // keep this to ensure state stays in sync
     const auth = localStorage.getItem("auth") === "true";
     setIsAuth(auth);
 
@@ -170,7 +215,7 @@ function App() {
               <div className="user-dropdown-message">
                 <h4 className="password-title">Change Password</h4>
                 <input 
-                  type="text" // Use type="password" for security
+                  type="text" 
                   placeholder="Old Password" 
                   value={oldPassword} 
                   onChange={(e) => setOldPassword(e.target.value)} 
@@ -195,6 +240,21 @@ function App() {
             )}
           </div>
           <div className="topbar-time">{time}</div>
+          <button 
+            onClick={toggleFullScreen}
+            title={isFullscreen ? "Exit Fullscreen (Esc)" : "Fullscreen (F11)"}
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              cursor: 'pointer', 
+              display: 'flex',
+              alignItems: 'center',
+              marginLeft: '15px', 
+              color: '#333'
+            }}
+          >
+            {isFullscreen ? <Shrink size={22} /> : <Expand size={22} />}
+          </button>
         </div>
       </header>
 

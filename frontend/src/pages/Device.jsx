@@ -179,7 +179,7 @@ export default function Device() {
             <Search className="search-icon" size={20} />
             <input
               type="text"
-              placeholder="Search Machine Name or Serial..."
+              placeholder="Search Device Name"
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="search-input"

@@ -313,7 +313,7 @@ export default function WorkOrder() {
         <div className="header-controls">
           <div className="search-wrapper">
             <Search className="search-icon" size={20} />
-            <input type="text" placeholder="Search WO..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="search-input" />
+            <input type="text" placeholder="Search Work Order" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="search-input" />
           </div>
         </div>
       </div>
