@@ -32,7 +32,7 @@ export default function Device() {
       }));
       setDevices(mappedData);
     } catch (error) {
-      console.error("Gagal load devices:", error);
+      console.error("Failed load devices:", error);
     } finally {
       setLoading(false);
     }
