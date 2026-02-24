@@ -72,19 +72,10 @@ export default function Parts() {
         const devRes = await fetch("/api/devices");
         if (devRes.ok) {
           const devData = await devRes.json();
-          // SAFETY CHECK: Make sure it's an array before setting state
-          if (Array.isArray(devData)) {
-            setDevices(devData);
-          } else if (devData && Array.isArray(devData.data)) {
-             // In case your API actually returns {"data": [...]}
-             setDevices(devData.data);
-          } else {
-             console.error("Expected devices to be an array, but got:", devData);
-             setDevices([]); // Fallback to empty array
-          }
+          setDevices(devData);
         }
       } catch (err) {
-        console.error("Failed to fetch devices data", err);
+        console.error("Gagal mengambil data devices", err);
       }
 
       const [productsData, logsData] = await Promise.all([
@@ -92,13 +83,8 @@ export default function Parts() {
         getProductLogs(),
       ]);
 
-      // SAFETY CHECK: Ensure productsData is an array
-      const safeProductsData = Array.isArray(productsData) ? productsData : (productsData?.data || []);
-      // SAFETY CHECK: Ensure logsData is an array
-      const safeLogsData = Array.isArray(logsData) ? logsData : (logsData?.data || []);
-
-      const mappedProducts = safeProductsData.map((item, index) => {
-        const partLogs = safeLogsData
+      const mappedProducts = productsData.map((item, index) => {
+        const partLogs = logsData
           .filter(log => log.machine_name === item.machine_name && log.name_product === item.name_product)
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
@@ -110,7 +96,7 @@ export default function Parts() {
       });
 
       setPartsData(mappedProducts);
-      setAllLogs(safeLogsData);
+      setAllLogs(logsData);
     } catch (error) {
       console.error("Error fetching data:", error);
       Swal.fire('Error', 'Failed to fetch data from server.', 'error');
@@ -292,20 +278,35 @@ export default function Parts() {
   };
 
   const handleApplyHistoryFilter = () => {
-    // 1. Add your exception check here using your specific state variables
-    if (!historyStart || !historyEnd) {
-      Swal.fire({ 
-        icon: 'warning', 
-        title: 'Filter is incomplete', 
-        text: 'Please fill in the Start Date and End Date first.' 
+      // 1. Check if dates are filled
+      if (!historyStart || !historyEnd) {
+        Swal.fire({ 
+          icon: 'warning', 
+          title: 'Filter is incomplete', 
+          text: 'Please fill in the Start Date and End Date first.' 
+        });
+        return;
+      }
+  
+      // 2. Show the loading spinner
+      Swal.fire({
+        title: 'Applying Filter...',
+        text: 'Please wait while we filter the history data.',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
       });
-      return;
-    }
-
-    // 2. Only run this if both dates are filled
-    setActiveHistoryStart(historyStart);
-    setActiveHistoryEnd(historyEnd);
-  };
+  
+      // 3. Tiny delay so the spinner actually renders before state updates
+      setTimeout(() => {
+        setActiveHistoryStart(historyStart);
+        setActiveHistoryEnd(historyEnd);
+        
+        // Close the spinner instantly when done
+        Swal.close();
+      }, 150);
+    };
 
   const handleClearHistoryFilter = () => {
     setHistoryStart(""); setHistoryEnd(""); setActiveHistoryStart(""); setActiveHistoryEnd("");
@@ -322,7 +323,11 @@ export default function Parts() {
     });
 
     if (filteredLogs.length === 0) {
-      return Swal.fire({ icon: 'warning', title: 'No Data', text: 'There is no history data to export.', confirmButtonText: 'OK' });
+      return Swal.fire({ 
+              icon: 'warning', 
+              title: 'No Data to Export', 
+              text: 'There is no history status data available for the selected period.' 
+            });
     }
 
     const headers = ["No", "Timestamp", "Action", "Manpower", "Machine", "Product"];

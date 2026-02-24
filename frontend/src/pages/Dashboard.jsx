@@ -337,21 +337,42 @@ export default function Dashboard() {
 
   // --- HANDLER FUNCTIONS ---
   const handleApplyModalFilter = () => {
-    
+    if (!modalStartDate || !modalEndDate) {
+      Swal.fire({ 
+        icon: 'warning', 
+        title: 'Filter is incomplete', 
+        text: 'Please fill in the start and end date first.' 
+      });
+      return;
+    }
     if (!selectedDevice) return;
 
-    const startObj = new Date(modalStartDate);
-    const endObj = new Date(modalEndDate);
+    // 1. Show Loading Spinner
+    Swal.fire({
+      title: 'Applying Filter...',
+      text: 'Recalculating timeline, please wait.',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
 
-    const newHistory = calculateTimelineFromEvents(selectedDevice.rawEvents, startObj, endObj);
-    const newRows = getHistoryRows(newHistory.timeline, globalProductLogs, selectedDevice.deviceName);
+    // 2. Add a tiny timeout so the spinner renders before the math freezes the UI
+    setTimeout(() => {
+      const startObj = new Date(modalStartDate);
+      const endObj = new Date(modalEndDate);
 
-    setModalData(prev => ({
-        ...prev,
-        chartTimeline: newHistory.timeline,
-        statusSummary: newHistory.summary,
-        historyTable: newRows
-    }));
+      const newHistory = calculateTimelineFromEvents(selectedDevice.rawEvents, startObj, endObj);
+      const newRows = getHistoryRows(newHistory.timeline, globalProductLogs, selectedDevice.deviceName);
+
+      setModalData(prev => ({
+          ...prev,
+          chartTimeline: newHistory.timeline,
+          statusSummary: newHistory.summary,
+          historyTable: newRows
+      }));
+
+      // 3. Close the spinner instantly when done
+      Swal.close();
+    }, 150);
   };
 
   const handleExportModalData = () => {
@@ -360,6 +381,15 @@ export default function Dashboard() {
         icon: 'warning', 
         title: 'Cannot Export', 
         text: 'Please apply a Start Date and End Date filter first.' 
+      });
+      return;
+    }
+
+    if (modalData.historyTable.length === 0) {
+      Swal.fire({ 
+        icon: 'warning', 
+        title: 'No Data to Export', 
+        text: 'There is no history status data available for the selected period.' 
       });
       return;
     }
@@ -530,9 +560,19 @@ export default function Dashboard() {
 
       setDevices(mappedDevices);
       setLoading(false);
+
+    if (Swal.isVisible() && Swal.getTitle()?.textContent === 'Updating Dashboard...') {
+          Swal.close();
+      }
+
     } catch (error) {
       console.error("Sync Error:", error);
       setLoading(false);
+      
+      // NEW: Show error if the filter fetch fails
+      if (Swal.isVisible() && Swal.getTitle()?.textContent === 'Updating Dashboard...') {
+          Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to fetch data' });
+      }
     }
   };
 
@@ -579,6 +619,15 @@ export default function Dashboard() {
       });
       return;
     }
+
+    Swal.fire({
+      title: 'Updating Dashboard...',
+      text: 'Fetching new data from server, please wait.',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
 
     // 2. Apply the dates if validation passes
     setComparisonStartDate(tempStartDate);

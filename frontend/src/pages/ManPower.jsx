@@ -124,7 +124,7 @@ export default function ManPower() {
 
   // --- 3b. HISTORY FILTER HANDLERS ---
   const handleApplyHistoryFilter = () => {
-    // 1. Add your exception check here using your specific state variables
+    // 1. Check if dates are filled
     if (!historyStart || !historyEnd) {
       Swal.fire({ 
         icon: 'warning', 
@@ -134,10 +134,26 @@ export default function ManPower() {
       return;
     }
 
-    // 2. Only run this if both dates are filled
-    setActiveHistoryStart(historyStart);
-    setActiveHistoryEnd(historyEnd);
+    // 2. Show the loading spinner
+    Swal.fire({
+      title: 'Applying Filter...',
+      text: 'Please wait while we filter the history data.',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    // 3. Tiny delay so the spinner actually renders before state updates
+    setTimeout(() => {
+      setActiveHistoryStart(historyStart);
+      setActiveHistoryEnd(historyEnd);
+      
+      // Close the spinner instantly when done
+      Swal.close();
+    }, 150);
   };
+  
 
   const handleClearHistoryFilter = () => {
     setHistoryStart("");
@@ -159,12 +175,11 @@ export default function ManPower() {
     });
 
     if (filteredLogs.length === 0) {
-      return Swal.fire({
-        icon: 'warning',
-        title: 'No Data',
-        text: 'There is no history data to export based on your current filters.',
-        confirmButtonText: 'OK'
-      });
+      return Swal.fire({ 
+              icon: 'warning', 
+              title: 'No Data to Export', 
+              text: 'There is no history status data available for the selected period.' 
+            });
     }
 
     // CSV Headers
