@@ -19,7 +19,7 @@ import StatCard from "../components/StatCard";
 import DeviceCard from "../components/DeviceCard";
 
 // API Imports
-import { getMachineLogs, getProductList, getManpowerList, getProductLogs, getFilteredMachineLogs, getDeviceList, getMachineStatusEvents } from "../services/api";
+import { getMachineLogs, getProductList, getManpowerList, getProductLogs, getFilteredMachineLogs, getDeviceList, getMachineStatusEvents, getWorkOrders } from "../services/api";
 
 // --- STATIC HELPERS (Does not use State) ---
 
@@ -154,7 +154,7 @@ export default function Dashboard() {
   const [tempEndDate, setTempEndDate] = useState(getCurrentDateTime());
   const [showComparisonFilter, setShowComparisonFilter] = useState(false);
     
-  const [counts, setCounts] = useState({ manpower: 0, parts: 0, machines: 0 });
+  const [counts, setCounts] = useState({ manpower: 0, parts: 0, machines: 0, workOrders: 0 });
   const [scrollPosition, setScrollPosition] = useState(0);
   const [maxScroll, setMaxScroll] = useState(0);
 
@@ -433,13 +433,14 @@ export default function Dashboard() {
          return;
       }
       
-      const [machineLogs, manpowerData, partsData, productLogs, registeredDevices] = await Promise.all([
+      const [machineLogs, manpowerData, partsData, productLogs, registeredDevices, workOrdersData] = await Promise.all([
               getMachineLogs(), 
               getManpowerList(),
               getProductList(),
               getProductLogs(),
-              getDeviceList()
-            ]);  
+              getDeviceList(),
+              getWorkOrders()
+            ]);
 
       setGlobalProductLogs(productLogs);
 
@@ -523,7 +524,8 @@ export default function Dashboard() {
       setCounts({
         manpower: manpowerData?.length || 0,
         parts: partsData?.length || 0,
-        machines: registeredDevices?.length || 0
+        machines: registeredDevices?.length || 0,
+        workOrders: workOrdersData?.length || 0
       });
 
       setDevices(mappedDevices);
@@ -640,7 +642,7 @@ export default function Dashboard() {
     { label: "Machine", count: counts.machines, icon: <Monitor size={32} /> },
     { label: "Man Power", count: counts.manpower, icon: <Users size={32} /> },
     { label: "Parts", count: counts.parts, icon: <Wrench size={32} /> },
-    { label: "Work Order", count: 6, icon: <ClipboardList size={32} /> },
+    { label: "Work Order", count: counts.workOrders, icon: <ClipboardList size={32} /> },
   ];
 
   return (

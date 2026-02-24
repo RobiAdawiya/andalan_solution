@@ -16,6 +16,11 @@ export const getManpowerLogs = async () => {
   return await response.json();
 };
 
+export const getWorkOrders = async () => {
+  const response = await fetch(`${BASE_URL}/api/work-orders`);
+  return await response.json();
+};
+
 // export const getProductLogs = async () => {
 //   const response = await fetch(`${BASE_URL}/product/logs`);
 //   return await response.json();
