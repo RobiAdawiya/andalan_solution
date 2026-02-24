@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Search, X, HardDrive, Box, Filter, Clock } from "lucide-react";
-import "../styles/workorder.css"; 
+import { Search, X, HardDrive, Box, Filter, Clock, Download } from "lucide-react"; // <-- TAMBAH Download
+import Swal from "sweetalert2";
+import "../styles/workorder.css";
 import BASE_URL from "../services/api";
 
 // --- MUI IMPORTS ---
@@ -155,7 +156,7 @@ export default function WorkOrder() {
   };
   const handleMouseLeaveSegment = () => { setIsTooltipVisible(false); };
 
-  // --- DETAIL HANDLERS ---
+// --- DETAIL HANDLERS ---
   const openDetailModal = async (wo) => {
     setSelectedWO(wo);
     const now = new Date();
@@ -164,135 +165,182 @@ export default function WorkOrder() {
         return new Date(d.getTime() - offset).toISOString().slice(0, 16);
     };
     
+    // Set logika default: dari waktu WO dibuat sampai saat ini
     const startVal = wo.date ? toLocalISO(new Date(wo.date)) : toLocalISO(now);
-    let endValRaw = now;
-    if (wo.status === 'Completed' && wo.end_date) endValRaw = new Date(wo.end_date);
-    const endVal = toLocalISO(endValRaw);
+    const endVal = toLocalISO(now);
 
-    const initialRange = { start: startVal, end: endVal };
-    setFilterDate(initialRange);
-    setTempFilterDate(initialRange);
+    // 1. filterDate diisi (agar chart langsung merender data default)
+    setFilterDate({ start: startVal, end: endVal });
+    
+    // 2. tempFilterDate dikosongkan (agar UI kalender terlihat kosong/placeholder)
+    setTempFilterDate({ start: "", end: "" });
     
     try {
         const res = await fetch(`${API_URL}/${wo.woNumber}/logs`);
         if (res.ok) { setPartLogs(await res.json()); }
     } catch (e) { console.error(e); }
-    setShowDetailModal(true); // <--- State ini yang tadi error
+    setShowDetailModal(true); 
   };
 
   const handleApplyFilter = () => {
+      // Validasi: pastikan user sudah mengisi kedua tanggal sebelum klik Apply
+      if (!tempFilterDate.start || !tempFilterDate.end) {
+          Swal.fire({ icon: 'warning', title: 'Filter Belum Lengkap', text: 'Silakan isi Start Date dan End Date terlebih dahulu.' });
+          return;
+      }
       setFilterDate({ ...tempFilterDate });
   };
 
+  const handleClearFilter = () => {
+      if (!selectedWO) return;
+      
+      const now = new Date();
+      const toLocalISO = (d) => {
+          const offset = d.getTimezoneOffset() * 60000;
+          return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+      };
+      
+      // Kembalikan start ke waktu pembuatan WO, dan end ke waktu SAAT INI
+      const startVal = selectedWO.date ? toLocalISO(new Date(selectedWO.date)) : toLocalISO(now);
+      const endVal = toLocalISO(now);
+
+      // Kembalikan chart ke default
+      setFilterDate({ start: startVal, end: endVal });
+      
+      // Kosongkan kembali UI Kalender
+      setTempFilterDate({ start: "", end: "" });
+  };
+
+  // --- FUNGSI EXPORT CSV ---
+  const handleExportCSV = () => {
+    if (!selectedWO || !selectedWO.parts || selectedWO.parts.length === 0) {
+      Swal.fire({ icon: 'warning', title: 'No Parts', text: 'There is no history data to export.'});
+      return;
+    }
+
+    // Siapkan Header
+    const csvRows = [
+      ["WO Number", "Machine Name", "Product Name", "Status", "Start Time", "End Time", "Duration (HH:MM:SS)"]
+    ];
+
+    // Loop data untuk digenerate menjadi baris CSV
+    selectedWO.parts.forEach(p => {
+      const key = `${p.machine}||${p.name}`;x
+      const logs = partLogs[key] || [];
+      const timelineSegments = generatePartTimeline(p.machine, p.name, logs, filterDate.start, filterDate.end);
+
+      timelineSegments.forEach(seg => {
+        csvRows.push([
+          selectedWO.woNumber,
+          p.machine,
+          p.name,
+          seg.status,
+          seg.startFmt.replace(/,/g, ''), // Hapus koma
+          seg.endFmt.replace(/,/g, ''),
+          formatTime(seg.duration)
+        ]);
+      });
+    });
+
+    if (csvRows.length === 1) {
+      Swal.fire({ icon: 'info', title: 'No Data', text: 'No Activity'});
+      return;
+    }
+
+    // Proses Download
+    const csvContent = csvRows.map(row => row.map(cell => `"${cell}"`).join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.setAttribute("href", URL.createObjectURL(blob));
+
+    const startStr = dayjs(filterDate.start).format('YYYY-MM-DD_HH-mm');
+    const endStr = dayjs(filterDate.end).format('YYYY-MM-DD_HH-mm');
+    link.setAttribute("download", `Data_${selectedWO.woNumber}_${startStr}_to_${endStr}.csv`);
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // --- TIMELINE GENERATOR ---
-  const generatePartTimeline = (machine, partName, rawLogs, filterStartStr, filterEndStr, woCreatedDate) => {
+  const generatePartTimeline = (machine, partName, rawLogs, filterStartStr, filterEndStr) => {
       if (!filterStartStr || !filterEndStr) return [];
       
       const filterStart = new Date(filterStartStr).getTime();
       let filterEnd = new Date(filterEndStr).getTime();
       const now = new Date().getTime();
+      
       if (filterEnd > now) filterEnd = now; 
-
-      const woStart = new Date(woCreatedDate).getTime();
 
       const totalDuration = (new Date(filterEndStr).getTime() - filterStart) / 1000;
       if (totalDuration <= 0) return [];
 
-      const logs = rawLogs || [];
-      const segments = [];
-      let currentTime = filterStart;
+      const logs = (rawLogs || []).sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
       
       const mapStatus = (action) => action?.toLowerCase() === 'start' ? 'WORKING' : 'NO WORKING';
 
-      let currentAction = "stop"; 
-      const prevLogs = logs.filter(l => new Date(l.time).getTime() < filterStart);
+      let currentTime = filterStart;
+      
+      let currentAction = null; 
+      const prevLogs = logs.filter(l => new Date(l.time).getTime() <= filterStart);
       if (prevLogs.length > 0) {
           currentAction = prevLogs[prevLogs.length - 1].action;
       }
-      let currentState = mapStatus(currentAction);
+      
+      let currentState = currentAction ? mapStatus(currentAction) : "NO_DATA";
 
       const relevantLogs = logs.filter(l => {
           const t = new Date(l.time).getTime();
-          return t >= filterStart && t <= filterEnd;
+          return t > filterStart && t <= filterEnd;
       });
+
+      const segments = [];
 
       const pushSegment = (start, end, state) => {
           if (end <= start) return;
-          
-          let effectiveState = state;
-          
-          if (end <= woStart) {
-              effectiveState = "NO_DATA";
-          }
-          else if (start < woStart && end > woStart) {
-              segments.push({
-                  status: "NO DATA",
-                  startFmt: new Date(start).toLocaleString('id-ID'), 
-                  endFmt: new Date(woStart).toLocaleString('id-ID'),
-                  duration: (woStart - start) / 1000,
-                  flex: ((woStart - start) / 1000) / totalDuration,
-                  color: STATUS_CONFIG["NO_DATA"].color
-              });
-              segments.push({
-                  status: state,
-                  startFmt: new Date(woStart).toLocaleString('id-ID'),
-                  endFmt: new Date(end).toLocaleString('id-ID'),
-                  duration: (end - woStart) / 1000,
-                  flex: ((end - woStart) / 1000) / totalDuration,
-                  color: (STATUS_CONFIG[state] || STATUS_CONFIG.PENDING).color
-              });
-              return; 
-          }
-
           const duration = (end - start) / 1000;
           const fmt = (ms) => new Date(ms).toLocaleString('id-ID', { 
             day: '2-digit', month: '2-digit', year: 'numeric', 
-            hour: '2-digit', minute: '2-digit' 
+            hour: '2-digit', minute: '2-digit', second: '2-digit'
           });
 
           segments.push({
-              status: effectiveState,
+              status: state,
               startFmt: fmt(start),
               endFmt: fmt(end),
               duration: duration,
               flex: duration / totalDuration,
-              color: (STATUS_CONFIG[effectiveState] || STATUS_CONFIG.PENDING).color
+              color: (STATUS_CONFIG[state] || STATUS_CONFIG["NO_DATA"]).color
           });
       };
 
-      const consolidatedLogs = [];
-      let tempState = currentState;
-      
       relevantLogs.forEach(log => {
-          const nextState = mapStatus(log.action);
-          if (nextState !== tempState) {
-              consolidatedLogs.push(log);
-              tempState = nextState;
-          }
-      });
-
-      consolidatedLogs.forEach(log => {
           const logTime = new Date(log.time).getTime();
           pushSegment(currentTime, logTime, currentState);
           currentTime = logTime;
-          currentState = mapStatus(log.action);
+          currentState = mapStatus(log.action); 
       });
 
-      const originalFilterEnd = new Date(filterEndStr).getTime();
       pushSegment(currentTime, filterEnd, currentState);
 
+      const originalFilterEnd = new Date(filterEndStr).getTime();
       if (originalFilterEnd > filterEnd) {
-           segments.push({
-              status: "NO DATA",
-              startFmt: new Date(filterEnd).toLocaleString('id-ID'),
-              endFmt: new Date(originalFilterEnd).toLocaleString('id-ID'),
-              duration: (originalFilterEnd - filterEnd) / 1000,
-              flex: ((originalFilterEnd - filterEnd) / 1000) / totalDuration,
-              color: STATUS_CONFIG["NO_DATA"].color
-          });
+           pushSegment(filterEnd, originalFilterEnd, "NO_DATA");
       }
 
-      return segments;
+      const mergedSegments = [];
+      segments.forEach(seg => {
+          if (mergedSegments.length > 0 && mergedSegments[mergedSegments.length - 1].status === seg.status) {
+              const last = mergedSegments[mergedSegments.length - 1];
+              last.endFmt = seg.endFmt;
+              last.duration += seg.duration;
+              last.flex += seg.flex;
+          } else {
+              mergedSegments.push(seg);
+          }
+      });
+
+      return mergedSegments;
   };
 
   const filteredData = workOrders.filter(wo => {
@@ -353,6 +401,7 @@ export default function WorkOrder() {
                 <div className="parts-vertical-list">
                   {wo.parts && wo.parts.length > 0 ? (
                     wo.parts.map((p, i) => {
+
                       // JIKA PART MASIH OPEN
                       const isWorking = p.status?.toLowerCase() === 'start';
                       const badgeStyle = {
@@ -408,20 +457,54 @@ export default function WorkOrder() {
               <div className="separator"></div>
 
               {/* Filter */}
-              <div className="filter-section">
+              <div className="filter-section" style={{ display: 'flex', gap: '10px', marginBottom: '15px', alignItems: 'center', flexWrap: 'wrap', background: '#f8f9fa', padding: '15px', borderRadius: '8px' }}>
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
-                    <div className="filter-group" style={{flex:1}}>
-                        <label style={{fontSize:'12px'}}>Start</label>
-                        <DateTimePicker format="DD/MM/YYYY HH:mm" ampm={false} value={dayjs(tempFilterDate.start)} onChange={(v) => setTempFilterDate(p=>({...p, start:v?v.format('YYYY-MM-DDTHH:mm:ss'):""}))} slotProps={{ textField: { size: 'small' } }} viewRenderers={{ hours: renderTimeViewClock, minutes: renderTimeViewClock }} />
+                    <div className="filter-group">
+                        <DateTimePicker 
+                            label="START DATE & TIME"
+                            format="DD/MM/YYYY HH:mm" 
+                            ampm={false} 
+                            value={tempFilterDate.start ? dayjs(tempFilterDate.start) : null} 
+                            onChange={(v) => setTempFilterDate(p=>({...p, start:v?v.format('YYYY-MM-DDTHH:mm:ss'):""}))} 
+                            slotProps={{ textField: { size: 'medium', style: { backgroundColor: 'white', width: '220px' } } }} 
+                            viewRenderers={{ hours: renderTimeViewClock, minutes: renderTimeViewClock }} 
+                        />
                     </div>
-                    <div className="filter-group" style={{flex:1}}>
-                        <label style={{fontSize:'12px'}}>End</label>
-                        <DateTimePicker format="DD/MM/YYYY HH:mm" ampm={false} value={dayjs(tempFilterDate.end)} onChange={(v) => setTempFilterDate(p=>({...p, end:v?v.format('YYYY-MM-DDTHH:mm:ss'):""}))} slotProps={{ textField: { size: 'small' } }} viewRenderers={{ hours: renderTimeViewClock, minutes: renderTimeViewClock }} />
+                    <div className="filter-group">
+                        <DateTimePicker 
+                            label="END DATE & TIME"
+                            format="DD/MM/YYYY HH:mm" 
+                            ampm={false} 
+                            value={tempFilterDate.end ? dayjs(tempFilterDate.end) : null} 
+                            onChange={(v) => setTempFilterDate(p=>({...p, end:v?v.format('YYYY-MM-DDTHH:mm:ss'):""}))} 
+                            slotProps={{ textField: { size: 'medium', style: { backgroundColor: 'white', width: '220px' } } }} 
+                            viewRenderers={{ hours: renderTimeViewClock, minutes: renderTimeViewClock }} 
+                        />
                     </div>
                 </LocalizationProvider>
-                <button className="btn-filter" onClick={handleApplyFilter}><Filter size={14}/> Apply Filter</button>
+                
+                {/* BUTTON GROUP */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                      onClick={handleApplyFilter} 
+                      style={{ background: '#0b4a8b', color:'white', fontWeight: 'bold', border:'none', padding:'8px 16px', borderRadius:'4px', cursor:'pointer', height: '40px' }}
+                  >
+                    Apply Filter
+                  </button>
+                  <button 
+                      onClick={handleClearFilter} 
+                      style={{ padding: '8px 16px', background: '#fff', fontWeight: 'bold', color: '#333', border: '1px solid #ddd', borderRadius: '6px', cursor: 'pointer', height: '40px' }}
+                  >
+                    Clear
+                  </button>
+                  <button 
+                    onClick={handleExportCSV} 
+                    style={{ padding: '8px 16px', background: '#28a745', color: 'white', fontWeight: 'bold', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', height: '40px' }}
+                  >
+                    <Download size={18} /> Export Data
+                  </button>
+                </div>
               </div>
-
               {/* CHARTS */}
               <div className="parts-timeline-container">
                  {selectedWO.parts && selectedWO.parts.length > 0 ? (
@@ -430,6 +513,7 @@ export default function WorkOrder() {
                           <div className="machine-box-header"><Box size={16} /> <span>{productName}</span></div>
                             <div className="machine-box-content">
                              {machineParts.map((p, idx) => {
+
                                 // JIKA NORMAL / OPEN (RENDER CHART SEPERTI BIASA)
                                 const key = `${p.machine}||${p.name}`;
                                 const logs = partLogs[key] || [];

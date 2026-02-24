@@ -289,8 +289,9 @@
 
 /* Detail Modal (Wider for Timeline) */
 .detail-modal {
-  width: 900px; 
-  max-width: 95%;
+  width: 95% !important;
+  max-width: 1600px !important;
+  height: 75vh !important;
 }
 
 @keyframes fadeIn {
