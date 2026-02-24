@@ -292,6 +292,17 @@ export default function Parts() {
   };
 
   const handleApplyHistoryFilter = () => {
+    // 1. Add your exception check here using your specific state variables
+    if (!historyStart || !historyEnd) {
+      Swal.fire({ 
+        icon: 'warning', 
+        title: 'Filter is incomplete', 
+        text: 'Please fill in the Start Date and End Date first.' 
+      });
+      return;
+    }
+
+    // 2. Only run this if both dates are filled
     setActiveHistoryStart(historyStart);
     setActiveHistoryEnd(historyEnd);
   };

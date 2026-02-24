@@ -185,9 +185,13 @@ export default function WorkOrder() {
   const handleApplyFilter = () => {
       // Validasi: pastikan user sudah mengisi kedua tanggal sebelum klik Apply
       if (!tempFilterDate.start || !tempFilterDate.end) {
-          Swal.fire({ icon: 'warning', title: 'Filter Belum Lengkap', text: 'Silakan isi Start Date dan End Date terlebih dahulu.' });
-          return;
-      }
+          Swal.fire({ 
+                  icon: 'warning', 
+                  title: 'Filter is incomplete', 
+                  text: 'Please fill in the Start Date and End Date first.' 
+                });
+                return;
+              }
       setFilterDate({ ...tempFilterDate });
   };
 
@@ -225,7 +229,7 @@ export default function WorkOrder() {
 
     // Loop data untuk digenerate menjadi baris CSV
     selectedWO.parts.forEach(p => {
-      const key = `${p.machine}||${p.name}`;x
+      const key = `${p.machine}||${p.name}`;
       const logs = partLogs[key] || [];
       const timelineSegments = generatePartTimeline(p.machine, p.name, logs, filterDate.start, filterDate.end);
 

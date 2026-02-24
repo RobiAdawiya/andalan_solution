@@ -5,6 +5,7 @@ import {
   ChevronLeft, ChevronRight, SquareUser, Bolt
 } from "lucide-react";
 import "../styles/dashboard.css";
+import Swal from "sweetalert2";
 
 // --- MUI IMPORTS FOR TIME CLOCK INTEGRATION ---
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -336,6 +337,7 @@ export default function Dashboard() {
 
   // --- HANDLER FUNCTIONS ---
   const handleApplyModalFilter = () => {
+    
     if (!selectedDevice) return;
 
     const startObj = new Date(modalStartDate);
@@ -353,6 +355,16 @@ export default function Dashboard() {
   };
 
   const handleExportModalData = () => {
+    if (!modalStartDate || !modalEndDate) {
+      Swal.fire({ 
+        icon: 'warning', 
+        title: 'Cannot Export', 
+        text: 'Please apply a Start Date and End Date filter first.' 
+      });
+      return;
+    }
+
+    if (!modalData) return;
     if (!modalData) return;
 
     const headerRows = [
@@ -556,6 +568,17 @@ export default function Dashboard() {
   };
 
   const handleApplyFilter = () => {
+    // 1. Check if both temporary dates are filled
+    if (!tempStartDate || !tempEndDate) {
+      Swal.fire({ 
+        icon: 'warning', 
+        title: 'Filter is incomplete', 
+        text: 'Please fill in the Start Date and End Date first.' 
+      });
+      return;
+    }
+
+    // 2. Apply the dates if validation passes
     setComparisonStartDate(tempStartDate);
     setComparisonEndDate(tempEndDate);
   };
