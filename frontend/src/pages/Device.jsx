@@ -186,7 +186,7 @@ export default function Device() {
             />
           </div>
           <button className="add-device-btn" onClick={handleAddDevice}>
-            + Add Device
+            Add Device
           </button>
         </div>
       </div>
