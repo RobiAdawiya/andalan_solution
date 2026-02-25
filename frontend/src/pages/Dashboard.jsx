@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { 
   Monitor, Users, Wrench, ClipboardList, Calendar, 
   Activity, X, Download, Zap, Thermometer, Battery, TrendingUp, 
@@ -157,6 +157,26 @@ export default function Dashboard() {
   const [counts, setCounts] = useState({ manpower: 0, parts: 0, machines: 0, workOrders: 0 });
   const [scrollPosition, setScrollPosition] = useState(0);
   const [maxScroll, setMaxScroll] = useState(0);
+
+  const gridWrapperRef = useRef(null);
+  
+  const updateScrollState = () => {
+    if (gridWrapperRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = gridWrapperRef.current;
+      setScrollPosition(scrollLeft);
+      setMaxScroll(scrollWidth - clientWidth);
+    }
+  };
+
+  // 3. ADD THIS USE-EFFECT TO RECALCULATE WHEN DEVICES LOAD
+  useEffect(() => {
+    // Wait a tiny bit for the DOM to render the cards, then calculate
+    setTimeout(updateScrollState, 100); 
+    
+    // Recalculate if user resizes the window
+    window.addEventListener('resize', updateScrollState);
+    return () => window.removeEventListener('resize', updateScrollState);
+  }, [devices]);
 
   const [tooltipData, setTooltipData] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
@@ -637,7 +657,7 @@ export default function Dashboard() {
   };
 
   const handleScroll = (direction) => {
-    const container = document.querySelector('.device-grid-wrapper');
+    const container = gridWrapperRef.current; // Use the ref instead!
     if (!container) return;
     
     const scrollAmount = 300;
@@ -715,7 +735,7 @@ export default function Dashboard() {
           <button className="scroll-button scroll-left" onClick={() => handleScroll('left')}><ChevronLeft size={20} /></button>
         )}
         
-        <div className="device-grid-wrapper">
+        <div className="device-grid-wrapper" ref={gridWrapperRef} onScroll={updateScrollState}>
           <div className="device-grid">
             {loading ? (
               <div className="loading-state">Loading...</div>
