@@ -561,21 +561,23 @@ export default function Dashboard() {
       setDevices(mappedDevices);
       setLoading(false);
 
-    if (Swal.isVisible() && Swal.getTitle()?.textContent === 'Updating Dashboard...') {
-          Swal.close();
-      }
+    setTimeout(() => {
+        if (Swal.isVisible() && Swal.getTitle()?.textContent === 'Updating Dashboard...') {
+            Swal.close();
+        }
+      }, 300);
 
     } catch (error) {
       console.error("Sync Error:", error);
       setLoading(false);
       
-      // NEW: Show error if the filter fetch fails
-      if (Swal.isVisible() && Swal.getTitle()?.textContent === 'Updating Dashboard...') {
-          Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to fetch data' });
-      }
+      setTimeout(() => {
+        if (Swal.isVisible() && Swal.getTitle()?.textContent === 'Updating Dashboard...') {
+            Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to fetch data' });
+        }
+      }, 300);
     }
   };
-
   useEffect(() => {
     fetchDashboardData();
     const interval = setInterval(fetchDashboardData, 5000);
