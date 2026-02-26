@@ -529,7 +529,7 @@ export default function WorkOrder() {
                                 return (
                                    <div key={idx} style={{marginBottom:'20px'}}>
                                       <div className="timeline-header" style={{marginBottom:'5px', fontSize:'12px', fontWeight:'bold', color:'#555', display:'flex', alignItems:'center', gap:'5px'}}>
-                                         <HardDrive size={12}/> {p.machine}
+                                         <HardDrive size={12}/> {p.machine} | SN: {p.serial_number || "-"}
                                       </div>
                                       <div style={{display:'flex', gap:'20px', fontSize:'11px', marginBottom:'5px', borderBottom:'1px dashed #eee', paddingBottom:'5px'}}>
                                          <span style={{color: STATUS_CONFIG["WORKING"].color, fontWeight:'bold'}}>WORKING: {formatTime(stats.start)}</span>
