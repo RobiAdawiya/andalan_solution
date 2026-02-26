@@ -48,7 +48,6 @@ export default function Parts() {
   const [formData, setFormData] = useState({
     wo_number: "",
     machine_name: "",
-    serial_number: "",
     name_product: ""
   });
 
@@ -86,7 +85,7 @@ export default function Parts() {
 
       const mappedProducts = productsData.map((item, index) => {
         const partLogs = logsData
-          .filter(log => log.machine_name === item.machine_name && log.serial_number === item.serial_number && log.name_product === item.name_product)
+          .filter(log => log.machine_name === item.machine_name && log.name_product === item.name_product)
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
         return {
@@ -154,7 +153,7 @@ export default function Parts() {
 
   // --- HANDLE ADD ---
   const handleAddPart = () => {
-    setFormData({ wo_number: "", machine_name: "", serial_number: "", name_product: "" }); 
+    setFormData({ wo_number: "", machine_name: "", name_product: "" }); 
     setShowAddModal(true);
   };
 
@@ -185,7 +184,6 @@ export default function Parts() {
     setFormData({
       wo_number: part.wo_number || "",
       machine_name: part.machine_name,
-      serial_number: part.serial_number || "",
       name_product: part.name_product
     });
     setShowEditModal(true);
@@ -197,7 +195,6 @@ export default function Parts() {
         // Pengecekan apakah ada perubahan
         if (
           formData.machine_name === editingPart.machine_name &&
-          formData.serial_number === editingPart.serial_number &&
           formData.name_product === editingPart.name_product &&
           formData.wo_number === (editingPart.wo_number || "")
         ) {
@@ -214,10 +211,8 @@ export default function Parts() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               old_machine_name: editingPart.machine_name, 
-              old_serial_number: editingPart.serial_number,
               old_name_product: editingPart.name_product,
               new_machine_name: formData.machine_name, 
-              new_serial_number: formData.serial_number,
               new_name_product: formData.name_product, 
               new_wo_number: formData.wo_number
             })
@@ -253,7 +248,6 @@ export default function Parts() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
               machine_name: part.machine_name, 
-              serial_number:part.serial_number,
               name_product: part.name_product 
             })
           });
@@ -530,17 +524,6 @@ export default function Parts() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Serial Number</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    value={formData.serial_number}
-                    onChange={(e) => setFormData({...formData, serial_number: e.target.value})}
-                    placeholder="Enter Serial Number"
-                    required 
-                  />
-                </div>
-                <div className="form-group">
                   <label>Parts Name</label>
                   <input 
                     type="text" 
@@ -591,17 +574,6 @@ export default function Parts() {
                     value={formData.machine_name}
                     onChange={(e) => setFormData({...formData, machine_name: e.target.value})}
                     placeholder="Enter Machine Name"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Serial Number </label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    value={formData.serial_number}
-                    onChange={(e) => setFormData({...formData, serial_number: e.target.value})}
-                    placeholder="Enter Serial Number"
                     required
                   />
                 </div>

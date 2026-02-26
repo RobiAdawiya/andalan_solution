@@ -57,7 +57,7 @@ def get_product_logs():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         query = """
-            SELECT id, machine_name, serial_number, name_product, action, name_manpower, created_at 
+            SELECT id, machine_name, name_product, action, name_manpower, created_at 
             FROM log_product 
             ORDER BY created_at DESC
         """
@@ -149,13 +149,11 @@ def get_all_products():
             SELECT 
                 p.id,
                 p.machine_name, 
-                p.serial_number,
                 p.name_product,
                 wod.wo_number
             FROM product p
             LEFT JOIN work_order_details wod 
               ON p.machine_name = wod.machine_name 
-             AND p.serial_number = wod.serial_number
              AND p.name_product = wod.product_name
             ORDER BY p.name_product ASC
         """
@@ -335,7 +333,6 @@ async def put_editmanpower(data: EditManpower):
 class addproduct(BaseModel):
     wo_number: str
     machine_name: str
-    serial_number:str
     name_product: str
 
 @app.post("/addproduct")
@@ -346,11 +343,11 @@ async def post_addproduct(data: addproduct):
         current_time = datetime.now(ZoneInfo("Asia/Jakarta"))
 
         # 1. Cek & Insert ke table product (Master)
-        cur.execute("SELECT 1 FROM product WHERE machine_name=%s AND serial_number=%s AND name_product=%s", 
-                    (data.machine_name, data.serial_number, data.name_product))
+        cur.execute("SELECT 1 FROM product WHERE machine_name=%s AND name_product=%s", 
+                    (data.machine_name, data.name_product))
         if not cur.fetchone():
-            cur.execute("INSERT INTO product (machine_name, serial_number, name_product) VALUES (%s, %s, %s)", 
-                        (data.machine_name, data.serial_number, data.name_product))
+            cur.execute("INSERT INTO product (machine_name, name_product) VALUES (%s, %s, %s)", 
+                        (data.machine_name, data.name_product))
 
         # 2. Tangani Work Order
         wo_num = data.wo_number.strip()
@@ -360,15 +357,15 @@ async def post_addproduct(data: addproduct):
                 cur.execute("INSERT INTO work_orders (wo_number, created_at) VALUES (%s, %s)", (wo_num, current_time))
                 
             cur.execute("""
-                INSERT INTO work_order_details (wo_number, machine_name, serial_number, product_name)
+                INSERT INTO work_order_details (wo_number, machine_name, product_name)
                 VALUES (%s, %s, %s, %s)
-            """, (wo_num, data.machine_name, data.serial_number, data.name_product))
+            """, (wo_num, data.machine_name, data.name_product))
 
         # 3. Insert ke table log_product
         cur.execute("""
-            INSERT INTO log_product (machine_name, serial_number, name_product, name_manpower, created_at, action) 
+            INSERT INTO log_product (machine_name, name_product, name_manpower, created_at, action) 
             VALUES (%s, %s, %s, %s, %s, %s)
-        """, (data.machine_name, data.serial_number, data.name_product, "admin", current_time, "stop"))
+        """, (data.machine_name, data.name_product, "admin", current_time, "stop"))
 
         conn.commit()
         return {"status": "success", "message": "Product & log berhasil ditambahkan"}
@@ -383,7 +380,6 @@ async def post_addproduct(data: addproduct):
 # 10. DELETE Product (Hanya hapus current product, log tetap)
 class DeleteProduct(BaseModel):
     machine_name: str
-    serial_number: str
     name_product: str
 
 
@@ -392,13 +388,13 @@ async def delete_product(data: DeleteProduct):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        # 1. Cek apakah product ada (gunakan serial_number juga)
+        # 1. Cek apakah product ada
         cur.execute(
             """
             SELECT 1 FROM product
-            WHERE machine_name = %s AND serial_number = %s AND name_product = %s
+            WHERE machine_name = %s AND name_product = %s
             """,
-            (data.machine_name, data.serial_number, data.name_product)
+            (data.machine_name, data.name_product)
         )
 
         if not cur.fetchone():
@@ -411,18 +407,18 @@ async def delete_product(data: DeleteProduct):
         cur.execute(
             """
             DELETE FROM product
-            WHERE machine_name = %s AND serial_number = %s AND name_product = %s
+            WHERE machine_name = %s AND name_product = %s
             """,
-            (data.machine_name, data.serial_number, data.name_product)
+            (data.machine_name, data.name_product)
         )
 
-        # 3. Hapus juga dari detail WO agar tidak jadi data hantu di frontend Work Order
+        # 3. Hapus juga dari detail WO 
         cur.execute(
             """
             DELETE FROM work_order_details 
-            WHERE machine_name = %s AND serial_number = %s AND product_name = %s
+            WHERE machine_name = %s AND product_name = %s
             """,
-            (data.machine_name, data.serial_number, data.name_product)
+            (data.machine_name, data.name_product)
         )
 
         # 4. Cleanup WO jika setelah part dihapus WO-nya jadi kosong
@@ -452,10 +448,8 @@ async def delete_product(data: DeleteProduct):
 # 11. PUT Edit Parts/Product
 class EditProduct(BaseModel):
     old_machine_name: str
-    old_serial_number:str
     old_name_product: str
     new_machine_name: str
-    ner_serial_number: str
     new_name_product: str
     new_wo_number: str
 
@@ -466,19 +460,19 @@ async def put_editproduct(data: EditProduct):
     try:
         # 1. Update Master Product
         cur.execute(
-            "UPDATE product SET machine_name=%s, serial_number=%s, name_product=%s WHERE machine_name=%s AND serial_number=%s AND name_product=%s",
-            (data.new_machine_name, data.new_serial_number, data.new_name_product, data.old_machine_name, data.old_serial_number, data.old_name_product)
+            "UPDATE product SET machine_name=%s, name_product=%s WHERE machine_name=%s AND name_product=%s",
+            (data.new_machine_name,  data.new_name_product, data.old_machine_name, data.old_name_product)
         )
         
         # 2. Update Histori Log
         cur.execute(
-            "UPDATE log_product SET machine_name=%s, serial_number=%s, name_product=%s WHERE machine_name=%s AND serial_number=%s AND name_product=%s",
-            (data.new_machine_name, data.new_serial_number, data.new_name_product, data.old_machine_name, data.old_serial_number, data.old_name_product)
+            "UPDATE log_product SET machine_name=%s, name_product=%s WHERE machine_name=%s AND name_product=%s",
+            (data.new_machine_name, data.new_name_product, data.old_machine_name, data.old_name_product)
         )
         
         # 3. Hapus dari detail WO lama
-        cur.execute("DELETE FROM work_order_details WHERE machine_name=%s AND serial_number=%s AND product_name=%s", 
-                    (data.old_machine_name, data.old_serial_number, data.old_name_product))
+        cur.execute("DELETE FROM work_order_details WHERE machine_name=%s AND product_name=%s", 
+                    (data.old_machine_name, data.old_name_product))
         
         # 4. Jika ada WO baru, masukkan
         wo_num = data.new_wo_number.strip() if data.new_wo_number else ""
@@ -488,9 +482,9 @@ async def put_editproduct(data: EditProduct):
                 cur.execute("INSERT INTO work_orders (wo_number, created_at) VALUES (%s, NOW())", (wo_num,))
                 
             cur.execute("""
-                INSERT INTO work_order_details (wo_number, machine_name, serial_number, product_name)
+                INSERT INTO work_order_details (wo_number, machine_name,product_name)
                 VALUES (%s, %s, %s, %s)
-            """, (wo_num, data.new_machine_name, data.new_serial_number, data.new_name_product))
+            """, (wo_num, data.new_machine_name, data.new_name_product))
 
         # 5. CLEANUP WO LAMA YANG KOSONG (Tetap sama)
         cur.execute("DELETE FROM work_orders w WHERE NOT EXISTS (SELECT 1 FROM work_order_details wd WHERE wd.wo_number = w.wo_number)")
@@ -573,7 +567,7 @@ async def edit_device(data: DeviceUpdate):
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Device tidak ditemukan")
 
-        # Update serial_number berdasarkan machine_name
+        # Update berdasarkan machine_name
         cur.execute("""
             UPDATE devices 
             SET serial_number = %s 
@@ -723,7 +717,6 @@ def get_work_orders():
                 COALESCE(json_agg(
                     json_build_object(
                         'machine', wod.machine_name,
-                        'serial_number', wod.serial_number,
                         'name', wod.product_name,
                         'status', COALESCE(lp.action, 'Pending')
                     )
@@ -735,7 +728,6 @@ def get_work_orders():
             FROM log_product
             WHERE name_product = wod.product_name 
               AND machine_name = wod.machine_name
-              AND serial_number = wod.serial_number
             ORDER BY created_at DESC
             LIMIT 1
         ) lp ON TRUE
@@ -768,12 +760,11 @@ def get_work_order_logs(wo_number: str):
 
     # Ambil logs berdasarkan WO number -> Detail (Machine+Product) -> Log Product
     query = """
-        SELECT lp.machine_name, lp.serial_number, lp.name_product, lp.action, lp.created_at
+        SELECT lp.machine_name, lp.name_product, lp.action, lp.created_at
         FROM log_product lp
         JOIN work_order_details wod 
           ON lp.name_product = wod.product_name 
           AND lp.machine_name = wod.machine_name
-          AND lp.serial_number = wod.serial_number
         WHERE wod.wo_number = %s
         ORDER BY lp.created_at ASC
     """
@@ -784,7 +775,7 @@ def get_work_order_logs(wo_number: str):
     logs = {}
 
     for r in rows:
-        key = f"{r['machine_name']}||{r['serial_number']}||{r['name_product']}"
+        key = f"{r['machine_name']}||{r['name_product']}"
         logs.setdefault(key, []).append({
             "action": r["action"],
             "time": r["created_at"].isoformat() if r["created_at"] else None

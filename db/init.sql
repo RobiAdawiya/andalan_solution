@@ -15,9 +15,8 @@ CREATE TABLE IF NOT EXISTS devices (
 CREATE TABLE IF NOT EXISTS product (
     id SERIAL PRIMARY KEY,
     machine_name VARCHAR(100) NOT NULL,
-    serial_number VARCHAR(100) NOT NULL,
     name_product VARCHAR(100) NOT NULL,
-    UNIQUE(machine_name, serial_number, name_product)
+    UNIQUE(machine_name, name_product)
 );
 
 CREATE TABLE IF NOT EXISTS log_manpower (
@@ -32,7 +31,6 @@ CREATE TABLE IF NOT EXISTS log_product (
     id SERIAL PRIMARY KEY,
     created_at TIMESTAMP DEFAULT NOW(),
     machine_name VARCHAR(100) NOT NULL,
-    serial_number VARCHAR(100) NOT NULL,
     name_product VARCHAR(100) NOT NULL,
     action VARCHAR(20) CHECK (action IN ('start','stop')),
     name_manpower VARCHAR(100)
@@ -63,7 +61,6 @@ CREATE TABLE IF NOT EXISTS work_order_details (
     id SERIAL PRIMARY KEY,
     wo_number VARCHAR(50) REFERENCES work_orders(wo_number) ON DELETE CASCADE,
     machine_name VARCHAR(100) NOT NULL,
-    serial_number VARCHAR(100) NOT NULL,
     product_name VARCHAR(100) NOT NULL
 );
 
@@ -76,19 +73,19 @@ INSERT INTO devices (machine_name, serial_number) VALUES
 ('machine_03', 'SN-0505') 
 ON CONFLICT (serial_number) DO NOTHING;
 
-INSERT INTO product (machine_name, serial_number, name_product) VALUES 
-('machine_01', 'SN-0502', 'SAMSUNG'), 
-('machine_01', 'SN-0502', 'HUAWEI'), 
-('machine_02', 'SN-0504', 'RADEON'), 
-('machine_02', 'SN-0504', 'HUAWEI'), 
-('machine_03', 'SN-0505', 'RADEON'), 
-('machine_03', 'SN-0505', 'SNAPDRAGON') 
-ON CONFLICT (machine_name, serial_number, name_product) DO NOTHING;
+INSERT INTO product (machine_name, name_product) VALUES 
+('machine_01', 'SAMSUNG'), 
+('machine_01', 'HUAWEI'), 
+('machine_02', 'RADEON'), 
+('machine_02', 'HUAWEI'), 
+('machine_03', 'RADEON'), 
+('machine_03', 'SNAPDRAGON') 
+ON CONFLICT (machine_name, name_product) DO NOTHING;
 
--- INISIALISASI STATUS (Sekarang sudah disisipkan serial_number)
+-- INISIALISASI STATUS
 INSERT INTO log_manpower (created_at, nik, name, status) SELECT NOW(), nik, name, 'logout' FROM manpower;
-INSERT INTO log_product (created_at, machine_name, serial_number, name_product, action, name_manpower) SELECT NOW(), machine_name, serial_number, name_product, 'stop', 'Initial Settings' FROM product;
+INSERT INTO log_product (created_at, machine_name, name_product, action, name_manpower) SELECT NOW(), machine_name, name_product, 'stop', 'Initial Settings' FROM product;
 
 -- INISIALISASI WORK ORDER AWAL
 INSERT INTO work_orders (wo_number, created_at) VALUES ('WO-INITIAL-01', NOW()) ON CONFLICT (wo_number) DO NOTHING;
-INSERT INTO work_order_details (wo_number, machine_name, serial_number, product_name) SELECT 'WO-INITIAL-01', machine_name, serial_number, name_product FROM product;
+INSERT INTO work_order_details (wo_number, machine_name, product_name) SELECT 'WO-INITIAL-01', machine_name, name_product FROM product;

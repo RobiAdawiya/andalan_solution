@@ -225,7 +225,7 @@ export default function WorkOrder() {
 
     // Loop data untuk digenerate menjadi baris CSV
     selectedWO.parts.forEach(p => {
-      const key = `${p.machine}||${p.serial_number}||${p.name}`;
+      const key = `${p.machine}||${p.name}`;
       const logs = partLogs[key] || [];
       const timelineSegments = generatePartTimeline(p.machine, p.name, logs, filterDate.start, filterDate.end);
 
@@ -515,7 +515,7 @@ export default function WorkOrder() {
                              {machineParts.map((p, idx) => {
 
                                 // JIKA NORMAL / OPEN (RENDER CHART SEPERTI BIASA)
-                                const key = '${p.machine}||${p.serial_number}||${p.name}';
+                                const key = `${p.machine}||${p.name}`;
                                 const logs = partLogs[key] || [];
                                 const timelineSegments = generatePartTimeline(p.machine, p.name, logs, filterDate.start, filterDate.end);
                                 
@@ -529,7 +529,7 @@ export default function WorkOrder() {
                                 return (
                                    <div key={idx} style={{marginBottom:'20px'}}>
                                       <div className="timeline-header" style={{marginBottom:'5px', fontSize:'12px', fontWeight:'bold', color:'#555', display:'flex', alignItems:'center', gap:'5px'}}>
-                                         <HardDrive size={12}/> {p.machine} | SN: {p.serial_number || "-"}
+                                         <HardDrive size={12}/> {p.machine}
                                       </div>
                                       <div style={{display:'flex', gap:'20px', fontSize:'11px', marginBottom:'5px', borderBottom:'1px dashed #eee', paddingBottom:'5px'}}>
                                          <span style={{color: STATUS_CONFIG["WORKING"].color, fontWeight:'bold'}}>WORKING: {formatTime(stats.start)}</span>
