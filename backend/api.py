@@ -709,7 +709,7 @@ class WorkOrderResponse(BaseModel):
     parts: List[Dict]
 
 # 19.1. GET ALL WORK ORDERS
-@app.get("/api/work-orders", response_model=List[WorkOrderResponse])
+@app.get("/work-orders", response_model=List[WorkOrderResponse])
 def get_work_orders():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -723,7 +723,7 @@ def get_work_orders():
                 COALESCE(json_agg(
                     json_build_object(
                         'machine', wod.machine_name,
-                        'serial_number' wod.serial_number,
+                        'serial_number', wod.serial_number,
                         'name', wod.product_name,
                         'status', COALESCE(lp.action, 'Pending')
                     )
@@ -761,7 +761,7 @@ def get_work_orders():
     return result
 
 # 19.2. GET LOGS SPECIFIC WO
-@app.get("/api/work-orders/{wo_number}/logs")
+@app.get("/work-orders/{wo_number}/logs")
 def get_work_order_logs(wo_number: str):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)

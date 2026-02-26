@@ -132,7 +132,7 @@ export default function WorkOrder() {
   const [tempFilterDate, setTempFilterDate] = useState({ start: "", end: "" });
   const [partLogs, setPartLogs] = useState({});
 
-  const API_URL = `${BASE_URL}/api/work-orders`;
+  const API_URL = `${BASE_URL}/work-orders`;
 
   // --- FETCH DATA ---
   useEffect(() => { fetchWorkOrders(); }, []);

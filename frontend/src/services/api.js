@@ -17,14 +17,10 @@ export const getManpowerLogs = async () => {
 };
 
 export const getWorkOrders = async () => {
-  const response = await fetch(`${BASE_URL}/api/work-orders`);
+  const response = await fetch(`${BASE_URL}/work-orders`);
   return await response.json();
 };
 
-// export const getProductLogs = async () => {
-//   const response = await fetch(`${BASE_URL}/product/logs`);
-//   return await response.json();
-// };
 export const getProductLogs = async () => {
   // Kita tambahkan "?t=" + waktu sekarang.
   // Ini trik supaya browser & server merasa ini adalah permintaan "baru" 
