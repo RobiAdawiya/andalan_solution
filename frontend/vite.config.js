@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     host: true, // setara 0.0.0.0
     allowedHosts: [
-      'andalan-fluids.wahyutech-2.my.id',
+      process.env.DOMAIN_NAME,
     ],
   },
 })
