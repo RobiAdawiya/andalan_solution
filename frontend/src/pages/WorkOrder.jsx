@@ -185,13 +185,9 @@ export default function WorkOrder() {
   const handleApplyFilter = () => {
       // Validasi: pastikan user sudah mengisi kedua tanggal sebelum klik Apply
       if (!tempFilterDate.start || !tempFilterDate.end) {
-          Swal.fire({ 
-                  icon: 'warning', 
-                  title: 'Filter is incomplete', 
-                  text: 'Please fill in the Start Date and End Date first.' 
-                });
-                return;
-              }
+          Swal.fire({ icon: 'warning', title: 'Flter is incomplete', text: 'Please fill in the Start Date and End Date first.' });
+          return;
+      }
       setFilterDate({ ...tempFilterDate });
   };
 
@@ -229,7 +225,7 @@ export default function WorkOrder() {
 
     // Loop data untuk digenerate menjadi baris CSV
     selectedWO.parts.forEach(p => {
-      const key = `${p.machine}||${p.name}`;
+      const key = `${p.machine}||${p.serial_number}||${p.name}`;
       const logs = partLogs[key] || [];
       const timelineSegments = generatePartTimeline(p.machine, p.name, logs, filterDate.start, filterDate.end);
 
@@ -519,7 +515,7 @@ export default function WorkOrder() {
                              {machineParts.map((p, idx) => {
 
                                 // JIKA NORMAL / OPEN (RENDER CHART SEPERTI BIASA)
-                                const key = `${p.machine}||${p.name}`;
+                                const key = '${p.machine}||${p.serial_number}||${p.name}';
                                 const logs = partLogs[key] || [];
                                 const timelineSegments = generatePartTimeline(p.machine, p.name, logs, filterDate.start, filterDate.end);
                                 

@@ -48,6 +48,7 @@ export default function Parts() {
   const [formData, setFormData] = useState({
     wo_number: "",
     machine_name: "",
+    serial_number: "",
     name_product: ""
   });
 
@@ -85,7 +86,7 @@ export default function Parts() {
 
       const mappedProducts = productsData.map((item, index) => {
         const partLogs = logsData
-          .filter(log => log.machine_name === item.machine_name && log.name_product === item.name_product)
+          .filter(log => log.machine_name === item.machine_name && log.serial_number === item.serial_number && log.name_product === item.name_product)
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
         return {
@@ -153,7 +154,7 @@ export default function Parts() {
 
   // --- HANDLE ADD ---
   const handleAddPart = () => {
-    setFormData({ wo_number: "", machine_name: "", name_product: "" }); 
+    setFormData({ wo_number: "", machine_name: "", serial_number: "", name_product: "" }); 
     setShowAddModal(true);
   };
 
@@ -184,6 +185,7 @@ export default function Parts() {
     setFormData({
       wo_number: part.wo_number || "",
       machine_name: part.machine_name,
+      serial_number: part.serial_number || "",
       name_product: part.name_product
     });
     setShowEditModal(true);
@@ -195,6 +197,7 @@ export default function Parts() {
         // Pengecekan apakah ada perubahan
         if (
           formData.machine_name === editingPart.machine_name &&
+          formData.serial_number === editingPart.serial_number &&
           formData.name_product === editingPart.name_product &&
           formData.wo_number === (editingPart.wo_number || "")
         ) {
@@ -211,8 +214,10 @@ export default function Parts() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               old_machine_name: editingPart.machine_name, 
+              old_serial_number: editingPart.serial_number,
               old_name_product: editingPart.name_product,
               new_machine_name: formData.machine_name, 
+              new_serial_number: formData.serial_number,
               new_name_product: formData.name_product, 
               new_wo_number: formData.wo_number
             })
@@ -248,6 +253,7 @@ export default function Parts() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
               machine_name: part.machine_name, 
+              serial_number:part.serial_number,
               name_product: part.name_product 
             })
           });
@@ -501,7 +507,7 @@ export default function Parts() {
             <form onSubmit={submitAddPart}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>WO Number <span style={{color:'red'}}>*</span></label>
+                  <label>WO Number</label>
                   <input 
                     type="text" 
                     className="form-input" 
@@ -511,23 +517,31 @@ export default function Parts() {
                     required 
                   />
                 </div>
-                {/* DROPDOWN MACHINE NAME */}
+                {/* INPUT MACHINE NAME */}
                 <div className="form-group">
-                  <label>Machine Name <span style={{color:'red'}}>*</span></label>
-                  <select 
+                  <label>Machine Name</label>
+                  <input 
+                    type="text" 
                     className="form-input" 
-                    value={formData.machine_name} 
-                    onChange={(e) => setFormData({...formData, machine_name: e.target.value})} 
-                    required
-                  >
-                    <option value="" disabled>Select Machine...</option>
-                    {devices.map((dev, idx) => (
-                      <option key={idx} value={dev.machine_name}>{dev.machine_name}</option>
-                    ))}
-                  </select>
+                    value={formData.machine_name}
+                    onChange={(e) => setFormData({...formData, machine_name: e.target.value})}
+                    placeholder="Enter Machine Name"
+                    required 
+                  />
                 </div>
                 <div className="form-group">
-                  <label>Parts Name <span style={{color:'red'}}>*</span></label>
+                  <label>Serial Number</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={formData.serial_number}
+                    onChange={(e) => setFormData({...formData, serial_number: e.target.value})}
+                    placeholder="Enter Serial Number"
+                    required 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Parts Name</label>
                   <input 
                     type="text" 
                     className="form-input"
@@ -539,8 +553,8 @@ export default function Parts() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="submit" className="btn-save"><Save size={16} style={{marginRight:5}}/> Save</button>
                 <button type="button" className="btn-cancel" onClick={() => setShowAddModal(false)}>Cancel</button>
+                <button type="submit" className="btn-save">Save Part</button>
               </div>
             </form>
           </div>
@@ -552,7 +566,7 @@ export default function Parts() {
         <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Edit Part</h2>
+              <h2>Edit Part Data</h2>
               <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={24} /></button>
             </div>
             <form onSubmit={submitEditPart}>
@@ -565,25 +579,34 @@ export default function Parts() {
                     value={formData.wo_number}
                     onChange={(e) => setFormData({...formData, wo_number: e.target.value})}
                     placeholder="Enter WO Number"
+                    required
                   />
                 </div>
-                {/* DROPDOWN MACHINE NAME */}
+                {/* INPUT MACHINE NAME */}
                 <div className="form-group">
-                  <label>Machine Name <span style={{color:'red'}}>*</span></label>
-                  <select 
+                  <label>Machine Name </label>
+                  <input 
+                    type="text" 
                     className="form-input" 
-                    value={formData.machine_name} 
-                    onChange={(e) => setFormData({...formData, machine_name: e.target.value})} 
+                    value={formData.machine_name}
+                    onChange={(e) => setFormData({...formData, machine_name: e.target.value})}
+                    placeholder="Enter Machine Name"
                     required
-                  >
-                    <option value="" disabled>Select Machine...</option>
-                    {devices.map((dev, idx) => (
-                      <option key={idx} value={dev.machine_name}>{dev.machine_name}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <div className="form-group">
-                  <label>Part Name <span style={{color:'red'}}>*</span></label>
+                  <label>Serial Number </label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={formData.serial_number}
+                    onChange={(e) => setFormData({...formData, serial_number: e.target.value})}
+                    placeholder="Enter Serial Number"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Part Name</label>
                   <input 
                     type="text" 
                     className="form-input"
@@ -595,8 +618,8 @@ export default function Parts() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="submit" className="btn-save"><Save size={16} style={{marginRight:5}}/> Update</button>
                 <button type="button" className="btn-cancel" onClick={() => setShowEditModal(false)}>Cancel</button>
+                <button type="submit" className="btn-save">Update Data</button>
               </div>
             </form>
           </div>

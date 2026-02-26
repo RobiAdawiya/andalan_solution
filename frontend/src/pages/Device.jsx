@@ -32,7 +32,7 @@ export default function Device() {
       }));
       setDevices(mappedData);
     } catch (error) {
-      console.error("Failed load devices:", error);
+      console.error("Gagal load devices:", error);
     } finally {
       setLoading(false);
     }
@@ -65,9 +65,17 @@ export default function Device() {
     setShowAddModal(true);
   };
 
-  // FIXED: Added 'e' parameter
+  // Added 'e' parameter
   const handleSaveAdd = async (e) => {
-    e.preventDefault(); // Now 'e' is defined!
+    e.preventDefault(); 
+
+    // 2. VALIDATION: Check if Serial Number already exists
+    const isSerialExist = devices.some(d => d.serial_number.toLowerCase() === addForm.serial_number.toLowerCase());
+    if (isSerialExist) {
+      Swal.fire({ icon: 'error', title: 'Duplicate Found', text: 'This Serial Number is already used by another device!' });
+      return;
+    }
+
     try {
       const res = await addDevice(addForm);
       if (res.status === "success") {
@@ -100,7 +108,7 @@ export default function Device() {
 
   // FIXED: Added 'e' parameter
   const handleSaveEdit = async (e) => {
-    e.preventDefault(); 
+    e.preventDefault(); // Now 'e' is defined!
     if (
       editingDevice &&
       editForm.machine_name === editingDevice.machine_name &&
@@ -117,9 +125,19 @@ export default function Device() {
       return;
     }
 
+    // VALIDATION: Check if new Serial Number is already used by ANOTHER device
+    const isSerialExist = devices.some(d => 
+      d.serial_number.toLowerCase() === editForm.serial_number.toLowerCase()  
+    );
+
+    if (isSerialExist) {
+      Swal.fire({ icon: 'error', title: 'Duplicate Found', text: 'This Serial Number is already used by another device!' });
+      return;
+    }
+
     try {
       const res = await updateDevice(editForm);
-      if (res.status === "success") {
+      if (res.status === "success") { 
         await fetchDevices();
         setShowEditModal(false);
         
@@ -179,7 +197,7 @@ export default function Device() {
             <Search className="search-icon" size={20} />
             <input
               type="text"
-              placeholder="Search Device"
+              placeholder="Search Device  "
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="search-input"
@@ -213,7 +231,7 @@ export default function Device() {
 
       {/* TABLE SECTION */}
       <div className="table-container">
-        {loading ? <p className="loading-state">Loading...</p> : (
+        {loading ? <p className="text-center" style={{padding: '2rem'}}>Syncing with Database...</p> : (
           <table className="device-table">
             <thead>
               <tr>
@@ -329,7 +347,7 @@ export default function Device() {
           <div className="modal-overlay" onClick={() => setShowEditModal(false)}></div>
           <div className="modal">
             <div className="modal-header">
-              <h2>Edit Serial Number</h2>
+              <h2>Edit Device Data</h2>
               <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={20}/></button>
             </div>
             
@@ -337,11 +355,17 @@ export default function Device() {
             <form onSubmit={handleSaveEdit}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>Machine Name (Read Only)</label>
-                  <input type="text" className="form-input disabled" value={editForm.machine_name} disabled required/>
+                  <label>Machine Name</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={editForm.machine_name} 
+                    onChange={(e) => setEditForm({...editForm, machine_name: e.target.value})}
+                    required
+                  />
                 </div>
                 <div className="form-group">
-                  <label>Update Serial Number</label>
+                  <label>Serial Number</label>
                   <input 
                     type="text" 
                     className="form-input" 

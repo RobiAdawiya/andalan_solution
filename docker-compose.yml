@@ -63,7 +63,7 @@ services:
     restart: unless-stopped
     command: tunnel run
     environment:
-      - TUNNEL_TOKEN=eyJhIjoiZTJiMzYyZWQwZmU2MzkwNGRlNmNmZjc5NzQ2OGM1YTIiLCJ0IjoiZjU1MDNlMzMtYjcwMS00MzU5LTg2M2ItMTI2YWFlZTVjMzk5IiwicyI6Ik9UbG1ORGRoTldRdE5EazFaaTAwTnpka0xUazJaamd0TXprd1pHUXpOREZrWXprMyJ9
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       app_net:
 

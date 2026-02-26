@@ -230,7 +230,36 @@ export default function ManPower() {
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
+
+    // 1. Find the ORIGINAL data of this person before any edits were typed
+    const originalPerson = manPowerData.find(p => p.id === editingPerson.id);
+
+    // 2. Compare the original data to the current editingPerson data
+    if (
+      originalPerson &&
+      editingPerson.name === originalPerson.name &&
+      editingPerson.nik === originalPerson.nik &&
+      editingPerson.department === originalPerson.department &&
+      editingPerson.position === originalPerson.position
+    ) {
+      Swal.fire({
+        icon: 'info', 
+        title: 'No Changes', 
+        text: "There's no modified things yet.", 
+        timer: 2000, 
+        showConfirmButton: false
+      });
+      setShowEditModal(false);
+      return;
+    }
     
+    // VALIDATION: Check if the new Name is already used by ANOTHER person
+    const isNikExist = manPowerData.some(p => String(p.nik).toLowerCase() === String(addForm.nik).toLowerCase());
+    if (isNikExist) {
+      Swal.fire({ icon: 'error', title: 'Duplicate Found', text: 'This NIK is already registered!' });
+      return;
+    }
+
     try {
       const response = await fetch("/api/editmanpower", {
         method: "PUT",
@@ -263,7 +292,12 @@ export default function ManPower() {
   const handleSaveAdd = async (e) => {
     e.preventDefault(); // <--- PREVENTS PAGE RELOAD
 
-    // NOTE: validation check is removed because the browser handles it now due to 'required' attribute
+    // 1. VALIDATION: Check if NIK already exists
+    const isNikExist = manPowerData.some(p => String(p.nik).toLowerCase() === String(addForm.nik).toLowerCase());
+    if (isNikExist) {
+      Swal.fire({ icon: 'error', title: 'Duplicate Found', text: 'This NIK is already registered!' });
+      return;
+    }
     
     try {
       const response = await fetch("/api/add_manpower", {
@@ -660,13 +694,13 @@ export default function ManPower() {
           <div className="modal-overlay" onClick={() => setShowEditModal(false)}></div>
           <div className="modal">
             <div className="modal-header">
-              <h2>Edit Data Manpower</h2>
+              <h2>Edit Manpower Data</h2>
               <button className="modal-close" onClick={() => setShowEditModal(false)}><X size={24} /></button>
             </div>
             <form onSubmit={handleSaveEdit}>
               <div className="modal-body">
               <div className="form-group">
-                <label>Nama Lengkap</label>
+                <label>Full Name</label>
                 <input 
                   type="text" 
                   value={editingPerson.name} 
@@ -676,8 +710,14 @@ export default function ManPower() {
                 />
               </div>
               <div className="form-group">
-                <label>NIK (Read Only)</label>
-                <input type="text" value={editingPerson.nik} disabled className="form-input disabled" required />
+                <label>NIK</label>
+                <input 
+                  type="text" 
+                  value={editingPerson.nik} 
+                  onChange={(e) => setEditingPerson({...editingPerson, nik: e.target.value})} 
+                  className="form-input" 
+                  required
+                />
               </div>
               <div className="form-group">
                 <label>Department</label>
@@ -704,8 +744,8 @@ export default function ManPower() {
               </div>
             </div>
             <div className="modal-footer">
-              <button type="button" className="btn-cancel" onClick={() => setShowEditModal(false)}>Batal</button>
-              <button type="submit" className="btn-save">Simpan Perubahan</button>
+              <button type="button" className="btn-cancel" onClick={() => setShowEditModal(false)}>Cancel</button>
+              <button type="submit" className="btn-save">Update Data</button>
             </div>
             </form> 
           </div>
