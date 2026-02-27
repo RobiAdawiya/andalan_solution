@@ -3,6 +3,8 @@ import { Search, X, Trash2, Edit, QrCode, History, ChevronLeft, ChevronRight, Sa
 import QRCode from "qrcode";
 import jsPDF from "jspdf";
 import "../styles/parts.css";
+import { formatToLocalTime } from "../utils/formatDate";
+
 
 // --- MUI IMPORTS FOR DATE PICKER & TIME CLOCK ---
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -333,7 +335,7 @@ export default function Parts() {
     const headers = ["No", "Timestamp", "Action", "Manpower", "Machine", "Product"];
     const rows = filteredLogs.map((log, index) => [
       index + 1,
-      new Date(log.created_at).toLocaleString("en-GB", { hour12: false }).replace(",", ""), 
+      formatToLocalTime(log.created_at).replace(",", ""),
       log.action, log.name_manpower, log.machine_name, log.name_product
     ]);
 
@@ -662,8 +664,8 @@ export default function Parts() {
                       .map((log, i) => (
                         <tr key={i}>
                           <td>{i + 1}</td>
-                          <td>
-                            {new Date(log.created_at).toLocaleString("en-GB", { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+                         <td>
+                            {formatToLocalTime(log.created_at)} 
                           </td>
                           <td>
                             {(() => {

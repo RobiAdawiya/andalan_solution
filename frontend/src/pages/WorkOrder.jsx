@@ -3,6 +3,7 @@ import { Search, X, HardDrive, Box, Filter, Clock, Download } from "lucide-react
 import Swal from "sweetalert2";
 import "../styles/workorder.css";
 import BASE_URL from "../services/api";
+import { formatToLocalTime } from "../utils/formatDate";
 
 // --- MUI IMPORTS ---
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -62,6 +63,11 @@ const groupPartsByProduct = (parts) => {
       grouped[prodName].push(p); 
   });
   return grouped;
+};
+
+const parseUTC = (dateString) => {
+  if (!dateString) return new Date();
+  return new Date(dateString.endsWith("Z") ? dateString : dateString + "Z");
 };
 
 // --- COMPONENT TOOLTIP ---
@@ -223,29 +229,48 @@ export default function WorkOrder() {
       ["WO Number", "Machine Name", "Product Name", "Status", "Start Time", "End Time", "Duration (HH:MM:SS)"]
     ];
 
-    // Loop data untuk digenerate menjadi baris CSV
+    let exportData = [];
+
+    // Loop data dan kumpulkan ke dalam array sebelum di-sort
     selectedWO.parts.forEach(p => {
       const key = `${p.machine}||${p.name}`;
       const logs = partLogs[key] || [];
       const timelineSegments = generatePartTimeline(p.machine, p.name, logs, filterDate.start, filterDate.end);
 
       timelineSegments.forEach(seg => {
-        csvRows.push([
-          selectedWO.woNumber,
-          p.machine,
-          p.name,
-          seg.status,
-          seg.startFmt.replace(/,/g, ''), // Hapus koma
-          seg.endFmt.replace(/,/g, ''),
-          formatTime(seg.duration)
-        ]);
+        exportData.push({
+          woNumber: selectedWO.woNumber,
+          machine: p.machine,
+          name: p.name,
+          status: seg.status,
+          startFmt: seg.startFmt.replace(/,/g, ''),
+          endFmt: seg.endFmt.replace(/,/g, ''),
+          duration: formatTime(seg.duration),
+          rawStartMs: seg.rawStartMs // Digunakan untuk sorting
+        });
       });
     });
 
-    if (csvRows.length === 1) {
+    if (exportData.length === 0) {
       Swal.fire({ icon: 'info', title: 'No Data', text: 'No Activity'});
       return;
     }
+
+    // SORTING DESCENDING berdasarkan waktu mulai (Start Time)
+    exportData.sort((a, b) => b.rawStartMs - a.rawStartMs);
+
+    // Masukkan data yang sudah di-sort ke CSV rows
+    exportData.forEach(data => {
+      csvRows.push([
+        data.woNumber,
+        data.machine,
+        data.name,
+        data.status,
+        data.startFmt,
+        data.endFmt,
+        data.duration
+      ]);
+    });
 
     // Proses Download
     const csvContent = csvRows.map(row => row.map(cell => `"${cell}"`).join(",")).join("\n");
@@ -275,14 +300,15 @@ export default function WorkOrder() {
       const totalDuration = (new Date(filterEndStr).getTime() - filterStart) / 1000;
       if (totalDuration <= 0) return [];
 
-      const logs = (rawLogs || []).sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+      // Use safe UTC parser for sorting logs
+      const logs = (rawLogs || []).sort((a, b) => parseUTC(a.time).getTime() - parseUTC(b.time).getTime());
       
       const mapStatus = (action) => action?.toLowerCase() === 'start' ? 'WORKING' : 'NO WORKING';
 
       let currentTime = filterStart;
       
       let currentAction = null; 
-      const prevLogs = logs.filter(l => new Date(l.time).getTime() <= filterStart);
+      const prevLogs = logs.filter(l => parseUTC(l.time).getTime() <= filterStart);
       if (prevLogs.length > 0) {
           currentAction = prevLogs[prevLogs.length - 1].action;
       }
@@ -290,7 +316,7 @@ export default function WorkOrder() {
       let currentState = currentAction ? mapStatus(currentAction) : "NO_DATA";
 
       const relevantLogs = logs.filter(l => {
-          const t = new Date(l.time).getTime();
+          const t = parseUTC(l.time).getTime();
           return t > filterStart && t <= filterEnd;
       });
 
@@ -301,7 +327,8 @@ export default function WorkOrder() {
           const duration = (end - start) / 1000;
           const fmt = (ms) => new Date(ms).toLocaleString('id-ID', { 
             day: '2-digit', month: '2-digit', year: 'numeric', 
-            hour: '2-digit', minute: '2-digit', second: '2-digit'
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false
           });
 
           segments.push({
@@ -310,12 +337,13 @@ export default function WorkOrder() {
               endFmt: fmt(end),
               duration: duration,
               flex: duration / totalDuration,
-              color: (STATUS_CONFIG[state] || STATUS_CONFIG["NO_DATA"]).color
+              color: (STATUS_CONFIG[state] || STATUS_CONFIG["NO_DATA"]).color,
+              rawStartMs: start // <--- ADDED FOR DESCENDING CSV SORT
           });
       };
 
       relevantLogs.forEach(log => {
-          const logTime = new Date(log.time).getTime();
+          const logTime = parseUTC(log.time).getTime();
           pushSegment(currentTime, logTime, currentState);
           currentTime = logTime;
           currentState = mapStatus(log.action); 
@@ -393,7 +421,7 @@ export default function WorkOrder() {
                 <div className="info-item">
                     <Clock size={16} />
                     <span className="info-text">
-                        {wo.date ? new Date(wo.date).toLocaleString('id-ID', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : "-"}
+                        {wo.date ? formatToLocalTime(wo.date).slice(0, 16) : "-"}
                     </span>
                 </div>
                 
@@ -451,7 +479,7 @@ export default function WorkOrder() {
               <div className="detail-grid" style={{gridTemplateColumns:'1fr 1fr'}}>
                  <div className="detail-item"><span className="label">WO Number</span><span className="value bold">{selectedWO.woNumber}</span></div>
                  <div className="detail-item"><span className="label">Created Date</span><span className="value">
-                    {selectedWO.date ? new Date(selectedWO.date).toLocaleString('id-ID') : "-"}
+                    {selectedWO.date ? formatToLocalTime(selectedWO.date) : "-"}
                  </span></div>
               </div>
               <div className="separator"></div>

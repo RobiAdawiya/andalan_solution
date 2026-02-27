@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import jsPDF from "jspdf";
 import "../styles/manpower.css";
 import { getManpowerList, getManpowerLogs } from "../services/api";
+import { formatToLocalTime } from "../utils/formatDate";
 
 // --- MUI IMPORTS FOR DATE PICKER & TIME CLOCK ---
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -188,7 +189,7 @@ export default function ManPower() {
     // CSV Rows
     const rows = filteredLogs.map((log, index) => [
       index + 1,
-      new Date(log.created_at).toLocaleString("en-GB", { hour12: false }).replace(",", ""), // Format Date 24h
+      formatToLocalTime(log.created_at).replace(",", ""), 
       log.status,
       selectedHistory.name
     ]);
@@ -668,11 +669,7 @@ export default function ManPower() {
                         <tr key={i}>
                           <td>{i + 1}</td>
                           <td>
-                            {new Date(log.created_at).toLocaleString("en-GB", { 
-                              year: 'numeric', month: '2-digit', day: '2-digit', 
-                              hour: '2-digit', minute: '2-digit', second: '2-digit',
-                              hour12: false 
-                            })}
+                            {formatToLocalTime(log.created_at)}
                           </td>
                           <td><span className={`status-badge status-${log.status}`}>{log.status}</span></td>
                         </tr>
