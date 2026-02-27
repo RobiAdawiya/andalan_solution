@@ -37,9 +37,9 @@ services:
     build: ./frontend
     container_name: frontend_container
     restart: always
-    # environment:
-    #   # This grabs DOMAIN_NAME from root .env and injects it into the container
-    #   - DOMAIN_NAME=${DOMAIN_NAME}
+    environment:
+      # This grabs DOMAIN_NAME from root .env and injects it into the container
+      - DOMAIN_NAME=${DOMAIN_NAME}
     networks:
       app_net:
 
