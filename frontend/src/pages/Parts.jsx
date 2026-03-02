@@ -23,7 +23,6 @@ export default function Parts() {
   const [loading, setLoading] = useState(true);
   const [partsData, setPartsData] = useState([]);
   const [allLogs, setAllLogs] = useState([]);
-  const [devices, setDevices] = useState([]); // State untuk Dropdown Machine Name
   
   // Modals State
   const [showQrModal, setShowQrModal] = useState(false);
@@ -68,21 +67,7 @@ export default function Parts() {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
-
-      // Ambil daftar Machine (Device) untuk Dropdown
-      try {
-        const token = localStorage.getItem("token");
-        const devRes = await fetch("/api/devices", {
-          headers: {"Authorize": `Bearer ${token}`}
-        });
-        if (devRes.ok) {
-          const devData = await devRes.json();
-          setDevices(devData);
-        }
-      } catch (err) {
-        console.error("Gagal mengambil data devices", err);
-      }
-
+      
       const [productsData, logsData] = await Promise.all([
         getProductList(),
         getProductLogs(),
