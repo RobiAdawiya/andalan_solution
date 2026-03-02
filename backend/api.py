@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel  # Ditambahkan untuk menangani skema data
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from typing import List, Dict, Optional
 
@@ -610,8 +610,17 @@ def login(data: LoginRequest):
         user = cursor.fetchone()
 
         if user:
-            # BUAT TOKEN JWT yang berlaku
-            token_jwt = jwt.encode({"username": user['username']}, SECRET_KEY, algorithm="HS256")
+            # 1. Tentukan batas waktu token (Misalnya: Berlaku 8 Jam)
+            expiration_time = datetime.now(timezone.utc) + timedelta(hours=8)
+            
+            # 2. Masukkan data ke Payload, termasuk 'exp' (Expiration)
+            payload_data = {
+                "username": user['username'],
+                "exp": expiration_time
+            }
+
+            # 3. Cetak token
+            token_jwt = jwt.encode(payload_data, SECRET_KEY, algorithm="HS256")
             
             return {
                 "status": "success",
