@@ -4,7 +4,7 @@ export default BASE_URL;
 
 // 1. FUNGSI PEMBANTU UNTUK AUTHORIZATION
 const fetchWithAuth = async (url, options = {}) => {
-  const token = localStorage.getItem("token"); // Ambil token dari storage
+  const token = sessionStorage.getItem("token"); // Ambil token dari storage
   
   // Gabungkan header bawaan dengan header Token
   const headers = {
@@ -16,7 +16,7 @@ const fetchWithAuth = async (url, options = {}) => {
 
   // JIKA BACKEND MENOLAK TOKEN (Token kedaluwarsa atau palsu)
   if (response.status === 401) {
-    localStorage.clear();
+    sessionStorage.clear();
     
     if (window.location.pathname !== "/login") {
         window.location.href = "/login"; 
