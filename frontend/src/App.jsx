@@ -15,7 +15,7 @@ import { changePassword } from "./services/api";
 import Swal from "sweetalert2";
 
 function App() {
-  const [isAuth, setIsAuth] = useState(() => localStorage.getItem("token") !== null);
+  const [isAuth, setIsAuth] = useState(() => sessionStorage.getItem("token") !== null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [time, setTime] = useState("");
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -78,10 +78,10 @@ function App() {
 
   useEffect(() => {
     // We keep this to ensure state stays in sync
-    const hasToken = localStorage.getItem("token") !== null;
+    const hasToken = sessionStorage.getItem("token") !== null;
     setIsAuth(hasToken);
 
-    const savedUser = localStorage.getItem("username");
+    const savedUser = sessionStorage.getItem("username");
     if (savedUser) setUsername(savedUser);
 
     const updateDateTime = () => {
@@ -100,7 +100,7 @@ function App() {
   }, []);
 
   const handleLogin = (name) => {
-    localStorage.setItem("username", name || "admin");
+    sessionStorage.setItem("username", name || "admin");
     setIsAuth(true);
     setUsername(name || "admin");
     navigate("/dashboard"); // Redirect after login
@@ -117,8 +117,8 @@ function App() {
       reverseButtons: true
     }).then((result) => {
       if (result.isConfirmed) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("username");
+        sessionStorage.removeItem("token");
+        sessionStorage.removeItem("username");
         setIsAuth(false);
         setSidebarOpen(false);
         navigate("/login");
@@ -160,8 +160,8 @@ function App() {
           icon: 'success',
           confirmButtonText: 'OK'
         }).then(() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("username");
+          sessionStorage.removeItem("token");
+          sessionStorage.removeItem("username");
           setIsAuth(false);
           setSidebarOpen(false);
           setShowUserMenu(false);
