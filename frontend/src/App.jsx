@@ -15,7 +15,7 @@ import { changePassword } from "./services/api";
 import Swal from "sweetalert2";
 
 function App() {
-  const [isAuth, setIsAuth] = useState(() => localStorage.getItem("auth") === "true");
+  const [isAuth, setIsAuth] = useState(() => localStorage.getItem("token") !== null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [time, setTime] = useState("");
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -77,9 +77,9 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // keep this to ensure state stays in sync
-    const auth = localStorage.getItem("auth") === "true";
-    setIsAuth(auth);
+    // We keep this to ensure state stays in sync
+    const hasToken = localStorage.getItem("token") !== null;
+    setIsAuth(hasToken);
 
     const savedUser = localStorage.getItem("username");
     if (savedUser) setUsername(savedUser);
@@ -100,7 +100,6 @@ function App() {
   }, []);
 
   const handleLogin = (name) => {
-    localStorage.setItem("auth", "true");
     localStorage.setItem("username", name || "admin");
     setIsAuth(true);
     setUsername(name || "admin");
@@ -118,7 +117,7 @@ function App() {
       reverseButtons: true
     }).then((result) => {
       if (result.isConfirmed) {
-        localStorage.removeItem("auth");
+        localStorage.removeItem("token");
         localStorage.removeItem("username");
         setIsAuth(false);
         setSidebarOpen(false);
@@ -161,7 +160,7 @@ function App() {
           icon: 'success',
           confirmButtonText: 'OK'
         }).then(() => {
-          localStorage.removeItem("auth");
+          localStorage.removeItem("token");
           localStorage.removeItem("username");
           setIsAuth(false);
           setSidebarOpen(false);
