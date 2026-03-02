@@ -154,7 +154,7 @@ export default function Parts() {
         method: "POST",
         headers: { 
            "Content-Type": "application/json",
-           "Authorization": `Bearer ${localStorage.getItem("token")}`
+           "Authorization": `Bearer ${sessionStorage.getItem("token")}`
         },
         body: JSON.stringify(formData)
       });
@@ -203,7 +203,7 @@ export default function Parts() {
             method: "PUT",
             headers: { 
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${localStorage.getItem("token")}`
+                "Authorization": `Bearer ${sessionStorage.getItem("token")}`
               },
             body: JSON.stringify({
               old_machine_name: editingPart.machine_name, 
@@ -243,7 +243,7 @@ export default function Parts() {
             method: "DELETE",
             headers: { 
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${localStorage.getItem("token")}` 
+                "Authorization": `Bearer ${sessionStorage.getItem("token")}` 
               },
             body: JSON.stringify({ 
               machine_name: part.machine_name, 
