@@ -146,7 +146,7 @@ export default function WorkOrder() {
   const fetchWorkOrders = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
+      const token = sessionStorage.getItem("token");
       const res = await fetch(API_URL, {
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -185,7 +185,7 @@ export default function WorkOrder() {
     setTempFilterDate({ start: "", end: "" });
     
     try {
-        const token = localStorage.getItem("token");
+        const token = sessionStorage.getItem("token");
         const res = await fetch(`${API_URL}/${wo.woNumber}/logs`, {
            headers: { "Authorization": `Bearer ${token}` }
         });
