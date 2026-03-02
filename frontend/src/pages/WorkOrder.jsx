@@ -146,7 +146,10 @@ export default function WorkOrder() {
   const fetchWorkOrders = async () => {
     try {
       setLoading(true);
-      const res = await fetch(API_URL);
+      const token = localStorage.getItem("token");
+      const res = await fetch(API_URL, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
       setWorkOrders(data);
@@ -182,12 +185,15 @@ export default function WorkOrder() {
     setTempFilterDate({ start: "", end: "" });
     
     try {
-        const res = await fetch(`${API_URL}/${wo.woNumber}/logs`);
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API_URL}/${wo.woNumber}/logs`, {
+           headers: { "Authorization": `Bearer ${token}` }
+        });
         if (res.ok) { setPartLogs(await res.json()); }
     } catch (e) { console.error(e); }
     setShowDetailModal(true); 
   };
-
+  
   const handleApplyFilter = () => {
       // Validasi: pastikan user sudah mengisi kedua tanggal sebelum klik Apply
       if (!tempFilterDate.start || !tempFilterDate.end) {

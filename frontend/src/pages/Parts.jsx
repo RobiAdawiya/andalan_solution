@@ -71,7 +71,10 @@ export default function Parts() {
 
       // Ambil daftar Machine (Device) untuk Dropdown
       try {
-        const devRes = await fetch("/api/devices");
+        const token = localStorage.getItem("token");
+        const devRes = await fetch("/api/devices", {
+          headers: {"Authorize": `Bearer ${token}`}
+        });
         if (devRes.ok) {
           const devData = await devRes.json();
           setDevices(devData);
@@ -164,7 +167,10 @@ export default function Parts() {
     try {
       const response = await fetch("/api/addproduct", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+           "Content-Type": "application/json",
+           "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
         body: JSON.stringify(formData)
       });
 
@@ -210,7 +216,10 @@ export default function Parts() {
         try {
           const response = await fetch("/api/editproduct", {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${localStorage.getItem("token")}`
+              },
             body: JSON.stringify({
               old_machine_name: editingPart.machine_name, 
               old_name_product: editingPart.name_product,
@@ -247,7 +256,10 @@ export default function Parts() {
         try {
           const response = await fetch("/api/delete_product", {
             method: "DELETE",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${localStorage.getItem("token")}` 
+              },
             body: JSON.stringify({ 
               machine_name: part.machine_name, 
               name_product: part.name_product 

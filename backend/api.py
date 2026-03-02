@@ -1,4 +1,6 @@
-from fastapi import FastAPI, HTTPException
+import jwt
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel  # Ditambahkan untuk menangani skema data
 import psycopg2
@@ -36,9 +38,22 @@ DB_CONFIG = {
 def get_db_connection():
     return psycopg2.connect(**DB_CONFIG)
 
+SECRET_KEY = "Andalan_Solution_V.1"
+security = HTTPBearer()
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        # Mencoba membaca dan memvalidasi token dari frontend
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=["HS256"])
+        return payload["username"]
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="The session expired, please relogin")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token is not valid, access refused")
+
 # 1. LOG MANPOWER
 @app.get("/manpower/logs")
-def get_manpower_logs():
+def get_manpower_logs(username: str = Depends(verify_token)):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -52,7 +67,7 @@ def get_manpower_logs():
 
 # 2. LOG PRODUCT
 @app.get("/product/logs")
-def get_product_logs():
+def get_product_logs(username: str = Depends(verify_token)):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -71,7 +86,7 @@ def get_product_logs():
 
 # 3. LOG MACHINE (IoT/Sensor Data)
 @app.get("/machine/logs")
-def get_machine_logs():
+def get_machine_logs(username: str = Depends(verify_token)):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -91,7 +106,7 @@ def get_machine_logs():
     
 # 3.1. MACHINE STATUS
 @app.get("/machine/status")
-def get_machine_status_events(machine_id: str):
+def get_machine_status_events(machine_id: str, username: str = Depends(verify_token)):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -124,7 +139,7 @@ def get_machine_status_events(machine_id: str):
     
 # 4. MASTER DATA MANPOWER
 @app.get("/manpower")
-def get_all_manpower():
+def get_all_manpower(username: str = Depends(verify_token)):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -139,7 +154,7 @@ def get_all_manpower():
     
 # 5. GET PRODUCT LIST (MASTER DATA PRODUCT)
 @app.get("/product")
-def get_all_products():
+def get_all_products(username: str = Depends(verify_token)):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -147,13 +162,10 @@ def get_all_products():
         # JOIN dengan work_order_details untuk mendapatkan wo_number
         query = """
             SELECT 
-                p.id,
-                p.machine_name, 
-                p.name_product,
-                wod.wo_number
+                p.id, p.machine_name, p.name_product, wod.wo_number
             FROM product p
             LEFT JOIN work_order_details wod 
-              ON p.machine_name = wod.machine_name 
+              ON p.machine_name = wod.machine_name
              AND p.name_product = wod.product_name
             ORDER BY p.name_product ASC
         """
@@ -175,7 +187,7 @@ class addmanpower(BaseModel):
     position: str
 
 @app.post("/add_manpower")
-async def post_add_manpower(data: addmanpower):
+async def post_add_manpower(data: addmanpower, username: str = Depends(verify_token)):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
@@ -224,7 +236,7 @@ class deletemanpower(BaseModel):
     nik: str
 
 @app.delete("/delete_manpower")
-async def delete_manpower(data: deletemanpower):
+async def delete_manpower(data: deletemanpower, username: str = Depends(verify_token)):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
@@ -268,7 +280,7 @@ class EditManpower(BaseModel):
     position: str
 
 @app.put("/editmanpower")
-async def put_editmanpower(data: EditManpower):
+async def put_editmanpower(data: EditManpower, username: str = Depends(verify_token)):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
@@ -336,7 +348,7 @@ class addproduct(BaseModel):
     name_product: str
 
 @app.post("/addproduct")
-async def post_addproduct(data: addproduct):
+async def post_addproduct(data: addproduct, username: str = Depends(verify_token)):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
@@ -346,7 +358,7 @@ async def post_addproduct(data: addproduct):
         cur.execute("SELECT 1 FROM product WHERE machine_name=%s AND name_product=%s", 
                     (data.machine_name, data.name_product))
         if not cur.fetchone():
-            cur.execute("INSERT INTO product (machine_name, name_product) VALUES (%s, %s, %s)", 
+            cur.execute("INSERT INTO product (machine_name, name_product) VALUES (%s, %s)", 
                         (data.machine_name, data.name_product))
 
         # 2. Tangani Work Order
@@ -358,7 +370,7 @@ async def post_addproduct(data: addproduct):
                 
             cur.execute("""
                 INSERT INTO work_order_details (wo_number, machine_name, product_name)
-                VALUES (%s, %s, %s, %s)
+                VALUES (%s, %s, %s)
             """, (wo_num, data.machine_name, data.name_product))
 
         # 3. Insert ke table log_product
@@ -368,7 +380,7 @@ async def post_addproduct(data: addproduct):
         """, (data.machine_name, data.name_product, "admin", current_time, "stop"))
 
         conn.commit()
-        return {"status": "success", "message": "Product & log berhasil ditambahkan"}
+        return {"status": "success", "message": "Product ditambahkan"}
 
     except Exception as e:
         conn.rollback()
@@ -382,9 +394,8 @@ class DeleteProduct(BaseModel):
     machine_name: str
     name_product: str
 
-
 @app.delete("/delete_product")
-async def delete_product(data: DeleteProduct):
+async def delete_product(data: DeleteProduct, username: str = Depends(verify_token)):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
@@ -412,7 +423,7 @@ async def delete_product(data: DeleteProduct):
             (data.machine_name, data.name_product)
         )
 
-        # 3. Hapus juga dari detail WO 
+        # 3. Hapus juga dari detail WO agar tidak jadi data hantu di frontend Work Order
         cur.execute(
             """
             DELETE FROM work_order_details 
@@ -454,14 +465,14 @@ class EditProduct(BaseModel):
     new_wo_number: str
 
 @app.put("/editproduct")
-async def put_editproduct(data: EditProduct):
+async def put_editproduct(data: EditProduct, username: str = Depends(verify_token)):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
         # 1. Update Master Product
         cur.execute(
             "UPDATE product SET machine_name=%s, name_product=%s WHERE machine_name=%s AND name_product=%s",
-            (data.new_machine_name,  data.new_name_product, data.old_machine_name, data.old_name_product)
+            (data.new_machine_name, data.new_name_product, data.old_machine_name, data.old_name_product)
         )
         
         # 2. Update Histori Log
@@ -482,8 +493,8 @@ async def put_editproduct(data: EditProduct):
                 cur.execute("INSERT INTO work_orders (wo_number, created_at) VALUES (%s, NOW())", (wo_num,))
                 
             cur.execute("""
-                INSERT INTO work_order_details (wo_number, machine_name,product_name)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO work_order_details (wo_number, machine_name, product_name)
+                VALUES (%s, %s, %s)
             """, (wo_num, data.new_machine_name, data.new_name_product))
 
         # 5. CLEANUP WO LAMA YANG KOSONG (Tetap sama)
@@ -505,9 +516,8 @@ class DeviceSchema(BaseModel):
     machine_name: str
     serial_number: str
 
-
 @app.get("/devices")
-def get_all_devices():
+def get_all_devices(username: str = Depends(verify_token)):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -521,7 +531,7 @@ def get_all_devices():
 
 # 13. POST ADD DEVICE
 @app.post("/add_device")
-async def post_add_device(data: DeviceSchema):
+async def post_add_device(data: DeviceSchema, username: str = Depends(verify_token)):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
@@ -538,11 +548,11 @@ async def post_add_device(data: DeviceSchema):
 
 # 14. DELETE DEVICE
 @app.delete("/delete_device/{machine_name}")
-async def delete_device(machine_name: str):
+async def delete_device(machine_name: str, username: str = Depends(verify_token)):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        cur.execute("DELETE FROM devices WHERE machine_name = %s AND serial_number = %s", (machine_name, serial_number))
+        cur.execute("DELETE FROM devices WHERE machine_name = %s", (machine_name,))
         conn.commit()
         return {"status": "success", "message": "Device deleted"}
     except Exception as e:
@@ -551,6 +561,7 @@ async def delete_device(machine_name: str):
     finally:
         cur.close()
         conn.close()
+
 # Tambahkan Skema baru untuk Update
 class DeviceUpdate(BaseModel):
     machine_name: str
@@ -558,7 +569,7 @@ class DeviceUpdate(BaseModel):
 
 # 15. PUT EDIT DEVICE
 @app.put("/edit_device")
-async def edit_device(data: DeviceUpdate):
+async def edit_device(data: DeviceUpdate, username: str = Depends(verify_token)):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
@@ -567,7 +578,7 @@ async def edit_device(data: DeviceUpdate):
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Device tidak ditemukan")
 
-        # Update berdasarkan machine_name
+        # Update serial_number berdasarkan machine_name
         cur.execute("""
             UPDATE devices 
             SET serial_number = %s 
@@ -591,29 +602,28 @@ class LoginRequest(BaseModel):
 @app.post("/login")
 def login(data: LoginRequest):
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     
-    # 1. Cek database
-    query = """
-        SELECT username 
-        FROM accounts 
-        WHERE username = %s AND passwords = %s
-    """
+    try:
+        query = "SELECT username FROM accounts WHERE username = %s AND passwords = %s"
+        cursor.execute(query, (data.username, data.password))
+        user = cursor.fetchone()
 
-    cursor.execute(query, (data.username, data.password))
-    user = cursor.fetchone()
-
-    cursor.close()
-    conn.close()
-
-    if user:
-        return {
-            "status": "success",
-            "message": "Login berhasil",
-            "username": user[0]
-        }
-    else:
-        raise HTTPException(status_code=401, detail="Username atau password salah")
+        if user:
+            # BUAT TOKEN JWT yang berlaku
+            token_jwt = jwt.encode({"username": user['username']}, SECRET_KEY, algorithm="HS256")
+            
+            return {
+                "status": "success",
+                "message": "Login berhasil",
+                "username": user['username'],
+                "token": token_jwt
+            }
+        else:
+            raise HTTPException(status_code=401, detail="Username atau password salah")
+    finally:
+        cursor.close()
+        conn.close()
 
 # 17. change password
 class ChangePasswordRequest(BaseModel):
@@ -622,7 +632,7 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 @app.put("/change-password")
-def change_password(data: ChangePasswordRequest):
+def change_password(data: ChangePasswordRequest, username: str = Depends(verify_token)):
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -659,7 +669,7 @@ def change_password(data: ChangePasswordRequest):
 
 # 18. Machine log filter
 @app.get("/machine/logs/filtered")
-def get_filtered_machine_logs(start_date: str = None, end_date: str = None, machine_id: str = None):
+def get_filtered_machine_logs(start_date: str = None, end_date: str = None, machine_id: str = None, username: str = Depends(verify_token)):
     try:
         if not start_date or not end_date or not machine_id:
             raise HTTPException(status_code=400, detail="start_date, end_date, and machine_id are required")
@@ -679,7 +689,6 @@ def get_filtered_machine_logs(start_date: str = None, end_date: str = None, mach
         return logs
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
 
 # 19. work order
 def get_wib_now():
@@ -703,24 +712,22 @@ class WorkOrderResponse(BaseModel):
     parts: List[Dict]
 
 # 19.1. GET ALL WORK ORDERS
-@app.get("/work-orders", response_model=List[WorkOrderResponse])
-def get_work_orders():
+@app.get("/api/work-orders", response_model=List[WorkOrderResponse])
+def get_work_orders(username: str = Depends(verify_token)):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 
     # UBAH wo.start_date dan wo.end_date menjadi wo.created_at
     query = """
-            SELECT 
-                wo.id,
-                wo.wo_number,
-                wo.created_at, 
-                COALESCE(json_agg(
-                    json_build_object(
-                        'machine', wod.machine_name,
-                        'name', wod.product_name,
-                        'status', COALESCE(lp.action, 'Pending')
-                    )
-                ) FILTER (WHERE wod.product_name IS NOT NULL), '[]') AS parts
+        SELECT 
+            wo.id, wo.wo_number, wo.created_at, 
+            COALESCE(json_agg(
+                json_build_object(
+                    'machine', wod.machine_name,
+                    'name', wod.product_name,
+                    'status', COALESCE(lp.action, 'Pending')
+                )
+            ) FILTER (WHERE wod.product_name IS NOT NULL), '[]') AS parts
         FROM work_orders wo
         LEFT JOIN work_order_details wod ON wod.wo_number = wo.wo_number
         LEFT JOIN LATERAL (
@@ -753,8 +760,8 @@ def get_work_orders():
     return result
 
 # 19.2. GET LOGS SPECIFIC WO
-@app.get("/work-orders/{wo_number}/logs")
-def get_work_order_logs(wo_number: str):
+@app.get("/api/work-orders/{wo_number}/logs")
+def get_work_order_logs(wo_number: str, username: str = Depends(verify_token)):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=RealDictCursor)
 

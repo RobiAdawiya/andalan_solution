@@ -20,10 +20,12 @@ export default function Login({ onLogin }) {
 
     try {
       const result = await loginCheck(username, password);
-      if (result.status === "success") { 
+      
+      if (result && result.status === "success") { 
+        
+        localStorage.setItem("token", result.token);
+        localStorage.setItem("username", result.username);
         onLogin(result.username);
-      } else {
-        setError("Username or password is incorrect");
       }
     } catch (error) {
       console.error("Login Error:", error);
