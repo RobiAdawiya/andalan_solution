@@ -12,7 +12,7 @@ const fetchWithAuth = async (url, options = {}) => {
     "Authorization": `Bearer ${token}`
   };
 
-  const response = await fetchWithAuth(url, { ...options, headers });
+  const response = await fetch(url, { ...options, headers });
 
   // JIKA BACKEND MENOLAK TOKEN (Token kedaluwarsa atau palsu)
   if (response.status === 401) {
