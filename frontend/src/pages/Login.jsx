@@ -23,8 +23,8 @@ export default function Login({ onLogin }) {
       
       if (result && result.status === "success") { 
         
-        localStorage.setItem("token", result.token);
-        localStorage.setItem("username", result.username);
+        sessionStorage.setItem("token", result.token);
+        sessionStorage.setItem("username", result.username);
         onLogin(result.username);
       }
     } catch (error) {
