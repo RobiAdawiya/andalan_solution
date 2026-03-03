@@ -64,6 +64,12 @@ CREATE TABLE IF NOT EXISTS work_order_details (
     product_name VARCHAR(100) NOT NULL
 );
 
+-- Tabel untuk menyimpan token yang sudah di-logout
+CREATE TABLE IF NOT EXISTS token_blacklist (
+    token TEXT PRIMARY KEY,
+    blacklisted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- SEEDING AWAL
 INSERT INTO manpower (nik, name, department, position) VALUES ('337', 'syafina', 'Data Science', 'Staff'), ('451', 'Alice Brown', 'Finance', 'Manager') ON CONFLICT (nik) DO NOTHING;
 INSERT INTO accounts (username, passwords) VALUES ('admin', 'admin') ON CONFLICT (username) DO NOTHING;

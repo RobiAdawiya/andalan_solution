@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { 
   Monitor, Users, Wrench, ClipboardList, Calendar, 
   Activity, X, Download, Zap, Thermometer, Battery, TrendingUp, 
-  ChevronLeft, ChevronRight, SquareUser, Bolt
+  ChevronLeft, ChevronRight, SquareUser, Bolt, Tablet, ThumbsUp, BriefcaseBusiness
 } from "lucide-react";
 import "../styles/dashboard.css";
 import Swal from "sweetalert2";
@@ -710,10 +710,10 @@ export default function Dashboard() {
   };
 
   const stats = [
-    { label: "Machine", count: counts.machines, icon: <Monitor size={32} /> },
-    { label: "Man Power", count: counts.manpower, icon: <Users size={32} /> },
-    { label: "Parts", count: counts.parts, icon: <Wrench size={32} /> },
-    { label: "Work Order", count: counts.workOrders, icon: <ClipboardList size={32} /> },
+    { label: "Machine", count: counts.machines, bgColor: "#17A2B8", icon: <Tablet size={28} color="white" /> },
+    { label: "Man Power", count: counts.manpower, bgColor: "#DC3545", icon: <Users size={28} color="white" /> },
+    { label: "Parts", count: counts.parts, bgColor: "#28A745", icon: <ThumbsUp size={28} color="white" /> },
+    { label: "Work Order", count: counts.workOrders, bgColor: "#FFC107", icon: <BriefcaseBusiness size={28} color="white" /> },
   ];
 
   return (

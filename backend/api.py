@@ -162,11 +162,17 @@ def get_all_products(username: str = Depends(verify_token)):
         # JOIN dengan work_order_details untuk mendapatkan wo_number
         query = """
             SELECT 
-                p.id, p.machine_name, p.name_product, wod.wo_number
+                p.id, 
+                p.machine_name, 
+                p.name_product, 
+                wod.wo_number,
+                d.serial_number
             FROM product p
             LEFT JOIN work_order_details wod 
               ON p.machine_name = wod.machine_name
              AND p.name_product = wod.product_name
+            LEFT JOIN devices d 
+              ON p.machine_name = d.machine_name
             ORDER BY p.name_product ASC
         """
 
@@ -633,6 +639,32 @@ def login(data: LoginRequest):
     finally:
         cursor.close()
         conn.close()
+
+# 16.1. Logout
+@app.post("/logout")
+def logout(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:        
+        # 1. FITUR SAPU OTOMATIS: Hapus token yang umurnya sudah lebih dari 7 hari
+        cur.execute("DELETE FROM token_blacklist WHERE blacklisted_at < NOW() - INTERVAL '7 days'")
+        
+        # 2. Masukkan token ke tabel blacklist.
+        cur.execute(
+            "INSERT INTO token_blacklist (token) VALUES (%s) ON CONFLICT DO NOTHING", 
+            (token,)
+        )
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+        
+    return {"status": "success", "message": "Berhasil logout, token dimatikan permanen"}
 
 # 17. change password
 class ChangePasswordRequest(BaseModel):

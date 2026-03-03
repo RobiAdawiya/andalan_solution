@@ -350,13 +350,21 @@ export default function Parts() {
   const handleViewQR = async (part) => {
     try {
       setQrGenerating(true);
-      const payload = { machine_name: String(part.machine_name), name_product: String(part.name_product) };
+      
+      // Payload baru dengan penambahan wo_number dan serial_number
+      const payload = { 
+        wo_number: String(part.wo_number || "-"), 
+        serial_number: String(part.serial_number || "-"),
+        machine_name: String(part.machine_name), 
+        part_name: String(part.name_product) 
+      };
+      
       setQrPayload(payload);
       const dataUrl = await QRCode.toDataURL(JSON.stringify(payload), { margin: 2, width: 320 });
       setQrDataUrl(dataUrl);
       setShowQrModal(true);
     } catch (err) {
-      setQrError("Failed to generate QR Code.");
+      setQrError("Gagal generate QR Code.");
     } finally {
       setQrGenerating(false);
     }
@@ -365,9 +373,15 @@ export default function Parts() {
   const handleDownloadPdf = () => {
     const doc = new jsPDF();
     doc.addImage(qrDataUrl, "PNG", 50, 40, 100, 100);
-    doc.text(`Machine: ${qrPayload.machine_name}`, 55, 150);
-    doc.text(`Product: ${qrPayload.name_product}`, 55, 160);
-    doc.save(`QR_${qrPayload.name_product}_${qrPayload.machine_name}.pdf`);
+    
+    // Mencetak teks keterangan tambahan di bawah QR Code pada file PDF
+    doc.text(`WO Number: ${qrPayload.wo_number}`, 55, 145);
+    doc.text(`Serial Number: ${qrPayload.serial_number}`, 55, 155);
+    doc.text(`Machine: ${qrPayload.machine_name}`, 55, 165);
+    doc.text(`Product: ${qrPayload.part_name}`, 55, 175);
+    
+    // Format Nama file: QR_nama-part_nama-machine.pdf
+    doc.save(`QR_${qrPayload.part_name}_${qrPayload.machine_name}.pdf`);
   };
 
   // --- 5. RENDER ---

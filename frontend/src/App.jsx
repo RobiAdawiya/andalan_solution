@@ -99,6 +99,17 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    // Fungsi darurat saat tab/browser ditutup paksa (X)
+    const handleTabClose = () => {
+      logoutUserAPI();
+    };
+    window.addEventListener("unload", handleTabClose);
+    return () => {
+      window.removeEventListener("unload", handleTabClose);
+    };
+  }, []);
+  
   const handleLogin = (name) => {
     sessionStorage.setItem("username", name || "admin");
     setIsAuth(true);
@@ -106,8 +117,8 @@ function App() {
     navigate("/dashboard"); // Redirect after login
   };
 
-  const handleLogout = () => {
-    Swal.fire({
+ const handleLogout = async () => {
+    const result = await Swal.fire({
       title: 'Exit Andalan Fluid System?',
       text: "Are you sure you want to logout?",
       icon: 'warning',
@@ -115,15 +126,20 @@ function App() {
       confirmButtonText: 'Yes, Logout',
       cancelButtonText: 'Cancel',
       reverseButtons: true
-    }).then((result) => {
-      if (result.isConfirmed) {
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await logoutUserAPI();
         sessionStorage.removeItem("token");
         sessionStorage.removeItem("username");
         setIsAuth(false);
         setSidebarOpen(false);
         navigate("/login");
+      } catch (error) {
+        console.error("Logout failed:", error);
       }
-    });
+    }
   };
 
   // Handle change password

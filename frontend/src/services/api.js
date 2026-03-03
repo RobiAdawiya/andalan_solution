@@ -133,6 +133,21 @@ export const getMachineStatusEvents = async (machineId) => {
   return res.json();
 };
 
+export const logoutUserAPI = async () => {
+  const token = sessionStorage.getItem("token");
+  if (token) {
+    try {
+      await fetch(`${BASE_URL}/logout`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        keepalive: true
+      });
+    } catch (err) {
+      console.error("Gagal memberitahu server untuk logout", err);
+    }
+  }
+};
+
 export const validateManpower = async (nik, nama) => {
   const response = await fetch(`${BASE_URL}/validate/manpower?nik=${nik}&nama=${nama}`);
   return await response.json();

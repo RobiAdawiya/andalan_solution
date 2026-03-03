@@ -54,10 +54,10 @@
 }
 
 .stat-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
   gap: 15px;
   margin-bottom: 20px;
+  width: 100%;
 }
 
 .stat-card {
@@ -71,6 +71,48 @@
   font-size: 20px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card-modern {
+  display: flex;
+  align-items: center;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  gap: 15px;
+  flex: 1; /* Makes all cards equal width */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+  .stat-card-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.stat-card-label {
+  font-size: 14px;
+  color: #555555;
+  margin-bottom: 4px;
+}
+
+.stat-card-count {
+  font-size: 18px;
+  font-weight: 700;
+  color: #212529;
+}
+
+.stat-card-icon-square {
+  width: 60px;
+  height: 60px;
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-right: 15px;
+  flex-shrink: 0;
 }
 
 .stat-card:hover {
@@ -90,10 +132,10 @@
 
 .stat-icon {
   display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  color: #0b4a8b;
-  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff; /* or whatever color fits your theme */
+  margin-bottom: 8px;
 }
 
 .stat-info {
