@@ -42,14 +42,27 @@ SECRET_KEY = "Andalan_Solution_V.1"
 security = HTTPBearer()
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    
+    # 1. CEK DATABASE: Apakah token ini sudah masuk daftar hitam?
+    conn = get_db_connection()
+    cur = conn.cursor()
     try:
-        # Mencoba membaca dan memvalidasi token dari frontend
-        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=["HS256"])
+        cur.execute("SELECT 1 FROM token_blacklist WHERE token = %s", (token,))
+        if cur.fetchone():
+            raise HTTPException(status_code=401, detail="Sesi telah diakhiri (Logout). Silakan login kembali.")
+    finally:
+        cur.close()
+        conn.close()
+
+    # 2. JIKA AMAN: Lanjutkan proses verifikasi tanda tangan dan waktu JWT
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         return payload["username"]
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="The session expired, please relogin")
+        raise HTTPException(status_code=401, detail="Sesi telah berakhir, silakan login kembali")
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Token is not valid, access refused")
+        raise HTTPException(status_code=401, detail="Token tidak valid, akses ditolak")
 
 # 1. LOG MANPOWER
 @app.get("/manpower/logs")
@@ -162,17 +175,11 @@ def get_all_products(username: str = Depends(verify_token)):
         # JOIN dengan work_order_details untuk mendapatkan wo_number
         query = """
             SELECT 
-                p.id, 
-                p.machine_name, 
-                p.name_product, 
-                wod.wo_number,
-                d.serial_number
+                p.id, p.machine_name, p.name_product, wod.wo_number
             FROM product p
             LEFT JOIN work_order_details wod 
               ON p.machine_name = wod.machine_name
              AND p.name_product = wod.product_name
-            LEFT JOIN devices d 
-              ON p.machine_name = d.machine_name
             ORDER BY p.name_product ASC
         """
 
@@ -665,6 +672,7 @@ def logout(credentials: HTTPAuthorizationCredentials = Depends(security)):
         conn.close()
         
     return {"status": "success", "message": "Berhasil logout, token dimatikan permanen"}
+
 
 # 17. change password
 class ChangePasswordRequest(BaseModel):

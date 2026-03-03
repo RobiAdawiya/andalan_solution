@@ -13,6 +13,7 @@ import logo2 from "./assets/logo2.png";
 import "./App.css";
 import { changePassword } from "./services/api";
 import Swal from "sweetalert2";
+import { logoutUserAPI} from "./services/api";
 
 function App() {
   const [isAuth, setIsAuth] = useState(() => sessionStorage.getItem("token") !== null);
