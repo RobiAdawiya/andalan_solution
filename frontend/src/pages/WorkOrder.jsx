@@ -14,10 +14,10 @@ import dayjs from 'dayjs';
 
 // --- CONFIG & HELPERS ---
 const STATUS_CONFIG = {
-  "WORKING": { label: "WORKING", color: "#2e7d32" },    
-  "NO WORKING": { label: "NO WORKING", color: "#c62828" }, 
-  "PENDING": { label: "NO DATA", color: "#E5E7EB" }, 
-  "NO_DATA": { label: "NO DATA", color: "#E5E7EB" }
+  "WORKING": { label: "WORKING", color: "#00BCD4" },    
+  "NO WORKING": { label: "NO WORKING", color: "#FF5252" }, 
+  "PENDING": { label: "NO DATA", color: "#FFC107" }, 
+  "NO_DATA": { label: "NO DATA", color: "#D3D3D3" }
 };
 
 const formatTime = (seconds) => {
