@@ -198,7 +198,19 @@ function App() {
   return (
     <div className="app-layout">
       {showUserMenu && (
-        <div className="user-menu-overlay" onClick={() => setShowUserMenu(false)}></div>
+        <div 
+          className="user-menu-overlay" 
+          onClick={() => setShowUserMenu(false)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            zIndex: 998,
+            cursor: "default"
+          }}
+        ></div>
       )}
 
       <header className="topbar">
@@ -210,14 +222,28 @@ function App() {
         </div>
         
         <div className="topbar-right">
-          <div className="user-profile-container">
+          {/* Add position: relative to the container */}
+          <div className="user-profile-container" style={{ position: "relative" }}>
             <span>Welcome, 
               <strong className="interactive-user" onClick={() => setShowUserMenu(!showUserMenu)}> 
                 {username}!
               </strong>
             </span>
             {showUserMenu && (
-              <div className="user-dropdown-message">
+              <div 
+                className="user-dropdown-message"
+                style={{
+                  position: "absolute",
+                  top: "100%", // Pushes it right below the text
+                  right: 0,    // Aligns it to the right edge
+                  marginTop: "10px",
+                  zIndex: 999, // Keeps it on top of everything
+                  backgroundColor: "white",
+                  boxShadow: "0px 4px 10px rgba(0,0,0,0.1)",
+                  padding: "15px",
+                  borderRadius: "8px"
+                }}
+              >
                 <h4 className="password-title">Change Password</h4>
                 <input 
                   type="text" 
@@ -288,7 +314,7 @@ function App() {
             <Route path="*" element={<div>Page Not Found</div>} />
           </Routes>
         </main>
-      </div>
+      </div>  
     </div>
   );
 }

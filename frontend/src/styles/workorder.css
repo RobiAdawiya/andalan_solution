@@ -202,9 +202,9 @@
 }
 
 /* Chip Colors based on class logic in JSX */
-.part-chip.pending { background: #fff9db; color: #e67700; border-color: #ffe8cc; }
-.part-chip.stop { background: #ffe3e3; color: #c92a2a; border-color: #ffc9c9; }
-.part-chip.run, .part-chip.start { background: #d3f9d8; color: #2b8a3e; border-color: #b2f2bb; }
+.part-chip.pending { background: #fff9db; color: #FFC107; border-color: #ffe8cc; }
+.part-chip.stop { background: #ffe3e3; color: #FF5252; border-color: #ffc9c9; }
+.part-chip.run, .part-chip.start { background: #d3f9d8; color: #00BCD4; border-color: #b2f2bb; }
 
 .part-more {
   font-size: 11px;
