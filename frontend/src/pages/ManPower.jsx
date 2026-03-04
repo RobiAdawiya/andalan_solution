@@ -763,7 +763,7 @@ export default function ManPower() {
             <form onSubmit={handleSaveAdd}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>Nama</label>
+                  <label>Name</label>
                   <input 
                     type="text" 
                     value={addForm.name} 

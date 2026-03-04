@@ -524,20 +524,20 @@ export default function Parts() {
                     required 
                   />
                 </div>
-                {/* INPUT MACHINE NAME */}
+                {/* INPUT DEVICE NAME */}
                 <div className="form-group">
-                  <label>Machine Name</label>
+                  <label>Device Name</label>
                   <input 
                     type="text" 
                     className="form-input" 
                     value={formData.machine_name}
                     onChange={(e) => setFormData({...formData, machine_name: e.target.value})}
-                    placeholder="Enter Machine Name"
+                    placeholder="Enter Device Name"
                     required 
                   />
                 </div>
                 <div className="form-group">
-                  <label>Parts Name</label>
+                  <label>Part Name</label>
                   <input 
                     type="text" 
                     className="form-input"
@@ -578,15 +578,15 @@ export default function Parts() {
                     required
                   />
                 </div>
-                {/* INPUT MACHINE NAME */}
+                {/* INPUT DEVICE NAME */}
                 <div className="form-group">
-                  <label>Machine Name </label>
+                  <label>Device Name </label>
                   <input 
                     type="text" 
                     className="form-input" 
                     value={formData.machine_name}
                     onChange={(e) => setFormData({...formData, machine_name: e.target.value})}
-                    placeholder="Enter Machine Name"
+                    placeholder="Enter Device Name"
                     required
                   />
                 </div>
