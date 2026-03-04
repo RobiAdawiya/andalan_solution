@@ -710,7 +710,7 @@ export default function Dashboard() {
   };
 
   const stats = [
-    { label: "Machine", count: counts.machines, bgColor: "#17A2B8", icon: <Tablet size={28} color="white" /> },
+    { label: "Device", count: counts.machines, bgColor: "#17A2B8", icon: <Tablet size={28} color="white" /> },
     { label: "Man Power", count: counts.manpower, bgColor: "#DC3545", icon: <Users size={28} color="white" /> },
     { label: "Parts", count: counts.parts, bgColor: "#28A745", icon: <ThumbsUp size={28} color="white" /> },
     { label: "Work Order", count: counts.workOrders, bgColor: "#FFC107", icon: <BriefcaseBusiness size={28} color="white" /> },

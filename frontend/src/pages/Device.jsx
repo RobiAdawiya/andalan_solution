@@ -236,7 +236,7 @@ export default function Device() {
             <thead>
               <tr>
                 <th className="text-center">No.</th>
-                <th>Machine Name</th>
+                <th>Device Name</th>
                 <th>Serial Number</th>
                 <th className="text-center">Action</th>
               </tr>
@@ -309,7 +309,7 @@ export default function Device() {
             <form onSubmit={handleSaveAdd}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>Machine Name (ID)</label>
+                  <label>Device Name</label>
                   <input 
                     type="text" 
                     className="form-input" 
@@ -355,7 +355,7 @@ export default function Device() {
             <form onSubmit={handleSaveEdit}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>Machine Name</label>
+                  <label>Device Name</label>
                   <input 
                     type="text" 
                     className="form-input" 

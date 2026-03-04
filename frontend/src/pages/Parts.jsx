@@ -439,7 +439,7 @@ export default function Parts() {
                 WO Number {getSortIcon('wo_number')}
               </th>
               <th onClick={() => handleSort('name_product')} style={{cursor: 'pointer', whiteSpace:'nowrap'}}>
-                Product Name {getSortIcon('name_product')}
+                Part Name {getSortIcon('name_product')}
               </th>
               <th>Status</th>
               <th className="text-center">Action</th>
