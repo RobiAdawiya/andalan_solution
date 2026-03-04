@@ -99,17 +99,6 @@ function App() {
     const timer = setInterval(updateDateTime, 1000);
     return () => clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    // Fungsi darurat saat tab/browser ditutup paksa (X)
-    const handleTabClose = () => {
-      logoutUserAPI();
-    };
-    window.addEventListener("unload", handleTabClose);
-    return () => {
-      window.removeEventListener("unload", handleTabClose);
-    };
-  }, []);
   
   const handleLogin = (name) => {
     sessionStorage.setItem("username", name || "admin");
