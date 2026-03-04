@@ -97,18 +97,21 @@ def get_product_logs(username: str = Depends(verify_token)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 3. LOG MACHINE (IoT/Sensor Data)
+# 3. LOG MACHINE (IoT/Sensor Data) - OPTIMIZED FOR LATEST DATA ONLY
 @app.get("/machine/logs")
 def get_machine_logs(username: str = Depends(verify_token)):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # DISTINCT ON will only grab the 1 absolute newest row for each tag per machine!
         query = """
-            SELECT machine_id, tag_name, tag_value, created_at 
+            SELECT DISTINCT ON (machine_id, tag_name) 
+                machine_id, tag_name, tag_value, created_at 
             FROM log_machine 
-            ORDER BY created_at DESC
-            LIMIT 20000
+            ORDER BY machine_id, tag_name, created_at DESC
         """
+        
         cur.execute(query)
         logs = cur.fetchall()
         cur.close()
