@@ -29,6 +29,7 @@ services:
       - DB_USER=postgres
       - DB_PASS=a
       - DB_PORT=5432
+      - SECRET_KEY=${SECRET_KEY}
     networks:
       app_net:
 
