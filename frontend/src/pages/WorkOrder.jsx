@@ -402,8 +402,11 @@ export default function WorkOrder() {
 
       {/* GRID */}
       <div className="wo-grid-container">
-        {loading ? (
-          <div className="loading-state">Loading...</div>
+         {loading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', width: '100%' }}>
+                <div className="custom-spinner"></div>
+                <p style={{ marginTop: '16px', color: '#64748b', fontWeight: '600', fontSize: '15px' }}>Loading</p>
+              </div>
         ) : filteredData.length === 0 ? (
           /* --- TAMBAHAN TEKS JIKA KOSONG --- */
           <div style={{ 

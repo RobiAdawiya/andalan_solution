@@ -231,7 +231,12 @@ export default function Device() {
 
       {/* TABLE SECTION */}
       <div className="table-container">
-        {loading ? <p className="text-center" style={{padding: '2rem'}}>Syncing with Database...</p> : (
+        {loading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', width: '100%' }}>
+                <div className="custom-spinner"></div>
+                <p style={{ marginTop: '16px', color: '#64748b', fontWeight: '600', fontSize: '15px' }}>Loading</p>
+              </div>
+            ) : (
           <table className="device-table">
             <thead>
               <tr>

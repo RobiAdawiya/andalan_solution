@@ -350,21 +350,13 @@ export default function Parts() {
   const handleViewQR = async (part) => {
     try {
       setQrGenerating(true);
-      
-      // Payload baru dengan penambahan wo_number dan serial_number
-      const payload = { 
-        wo_number: String(part.wo_number || "-"), 
-        serial_number: String(part.serial_number || "-"),
-        machine_name: String(part.machine_name), 
-        part_name: String(part.name_product) 
-      };
-      
+      const payload = { machine_name: String(part.machine_name), name_product: String(part.name_product) };
       setQrPayload(payload);
       const dataUrl = await QRCode.toDataURL(JSON.stringify(payload), { margin: 2, width: 320 });
       setQrDataUrl(dataUrl);
       setShowQrModal(true);
     } catch (err) {
-      setQrError("Gagal generate QR Code.");
+      setQrError("Failed to generate QR Code.");
     } finally {
       setQrGenerating(false);
     }
@@ -373,19 +365,22 @@ export default function Parts() {
   const handleDownloadPdf = () => {
     const doc = new jsPDF();
     doc.addImage(qrDataUrl, "PNG", 50, 40, 100, 100);
-    
-    // Mencetak teks keterangan tambahan di bawah QR Code pada file PDF
-    doc.text(`WO Number: ${qrPayload.wo_number}`, 55, 145);
-    doc.text(`Serial Number: ${qrPayload.serial_number}`, 55, 155);
-    doc.text(`Machine: ${qrPayload.machine_name}`, 55, 165);
-    doc.text(`Product: ${qrPayload.part_name}`, 55, 175);
-    
-    // Format Nama file: QR_nama-part_nama-machine.pdf
-    doc.save(`QR_${qrPayload.part_name}_${qrPayload.machine_name}.pdf`);
+    doc.text(`Machine: ${qrPayload.machine_name}`, 55, 150);
+    doc.text(`Product: ${qrPayload.name_product}`, 55, 160);
+    doc.save(`QR_${qrPayload.name_product}_${qrPayload.machine_name}.pdf`);
   };
 
   // --- 5. RENDER ---
-  if (loading) return <div className="loading-state">Loading...</div>;
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', width: '100%' }}>
+        <div className="custom-spinner"></div>
+        <p style={{ marginTop: '20px', color: '#64748b', fontWeight: '600', fontSize: '18px' }}>
+          Loading
+        </p>
+      </div>
+    );
+  }
 
   const getSortIcon = (columnName) => {
     if (sortConfig.key !== columnName) return <span style={{opacity: 0.3, marginLeft:'4px'}}>↕</span>;
@@ -524,7 +519,7 @@ export default function Parts() {
                     required 
                   />
                 </div>
-                {/* INPUT DEVICE NAME */}
+                {/* INPUT MACHINE NAME */}
                 <div className="form-group">
                   <label>Device Name</label>
                   <input 
@@ -578,7 +573,7 @@ export default function Parts() {
                     required
                   />
                 </div>
-                {/* INPUT DEVICE NAME */}
+                {/* INPUT MACHINE NAME */}
                 <div className="form-group">
                   <label>Device Name </label>
                   <input 

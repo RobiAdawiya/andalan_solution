@@ -264,3 +264,19 @@ html, body {
   background: transparent; /* Atau gunakan rgba(0,0,0,0.05) jika ingin efek redup */
   z-index: 999; /* Harus tepat di bawah dropdown menu */
 }
+
+/* Custom Loading Spinner */
+.custom-spinner {
+  border: 4px solid rgba(0, 0, 0, 0.05);
+  border-left-color: #0b4a8b;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

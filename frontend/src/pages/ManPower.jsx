@@ -386,9 +386,15 @@ export default function ManPower() {
   };
 
   if (loading) {
-    return <div className="loading-state">Loading...</div>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', width: '100%' }}>
+        <div className="custom-spinner"></div>
+        <p style={{ marginTop: '20px', color: '#64748b', fontWeight: '600', fontSize: '18px' }}>
+          Loading
+        </p>
+      </div>
+    );
   }
-
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <div className="page-header">
@@ -763,7 +769,7 @@ export default function ManPower() {
             <form onSubmit={handleSaveAdd}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label>Name</label>
+                  <label>Nama</label>
                   <input 
                     type="text" 
                     value={addForm.name} 
@@ -822,7 +828,7 @@ export default function ManPower() {
           <div className="modal">
             <div className="modal-header"><h2>QR Code Viewer</h2><button className="modal-close" onClick={() => setShowQrModal(false)}><X size={24} /></button></div>
             <div className="modal-body" style={{textAlign:'center'}}>
-              {qrGenerating ? <p>Loading...</p> : <img src={qrDataUrl} alt="QR" style={{width:250}} />}
+              {qrGenerating ? <p>Generating...</p> : <img src={qrDataUrl} alt="QR" style={{width:250}} />}
             </div>
             <div className="modal-footer">
               <button className="btn-save" onClick={downloadPDF}>Download PDF</button>

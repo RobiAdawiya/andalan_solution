@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { 
   Monitor, Users, Wrench, ClipboardList, Calendar, 
   Activity, X, Download, Zap, Thermometer, Battery, TrendingUp, 
-  ChevronLeft, ChevronRight, SquareUser, Bolt, Tablet, ThumbsUp, BriefcaseBusiness
+  ChevronLeft, ChevronRight, SquareUser, Cog, Tablet, ThumbsUp, BriefcaseBusiness
 } from "lucide-react";
 import "../styles/dashboard.css";
 import Swal from "sweetalert2";
@@ -710,10 +710,30 @@ export default function Dashboard() {
   };
 
   const stats = [
-    { label: "Device", count: counts.machines, bgColor: "#17A2B8", icon: <Tablet size={28} color="white" /> },
-    { label: "Man Power", count: counts.manpower, bgColor: "#DC3545", icon: <Users size={28} color="white" /> },
-    { label: "Parts", count: counts.parts, bgColor: "#28A745", icon: <ThumbsUp size={28} color="white" /> },
-    { label: "Work Order", count: counts.workOrders, bgColor: "#FFC107", icon: <BriefcaseBusiness size={28} color="white" /> },
+    { 
+      label: "Device", 
+      count: counts.machines, 
+      color: "#17a2b8", 
+      icon: <Tablet size={38} color="#17a2b8" strokeWidth={2} /> 
+    },
+    { 
+      label: "Man Power", 
+      count: counts.manpower, 
+      color: "#dc3545", 
+      icon: <Users size={38} color="#dc3545" strokeWidth={2} /> 
+    },
+    { 
+      label: "Parts", 
+      count: counts.parts, 
+      color: "#28a745", 
+      icon: <Cog size={38} color="#28a745" strokeWidth={2} /> 
+    },
+    { 
+      label: "Work Order", 
+      count: counts.workOrders, 
+      color: "#ffc107", 
+      icon: <BriefcaseBusiness size={38} color="#ffc107" strokeWidth={2} /> 
+    },
   ];
 
   return (
@@ -724,9 +744,52 @@ export default function Dashboard() {
         position={tooltipPos} 
       />
 
-      <div className="stat-row">
-        {stats.map((s, i) => (
-          <StatCard key={i} {...s} />
+      {/* NEW FULL-PAGE LOADING CHECK */}
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', width: '100%' }}>
+          <div className="custom-spinner"></div>
+          <p style={{ marginTop: '20px', color: '#64748b', fontWeight: '600', fontSize: '15px' }}>
+            Loading
+          </p>
+        </div>
+      ) : (
+        <>
+          <div 
+            className="stat-row" 
+        style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', 
+          gap: '20px', 
+          marginBottom: '24px' 
+        }}
+      >
+        {stats.map((stat, i) => (
+          <div 
+            key={i} 
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '10px',
+              boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)',
+              borderLeft: `6px solid ${stat.color}`,
+              padding: '20px 24px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ color: '#64748b', fontSize: '14px', fontWeight: '600' }}>
+                {stat.label}
+              </span>
+              {/* The font size here is reduced to 26px so it's not too big */}
+              <span style={{ color: '#1e293b', fontSize: '26px', fontWeight: '800', lineHeight: '1' }}>
+                {stat.count}
+              </span>
+            </div>
+            <div>
+              {stat.icon}
+            </div>
+          </div>
         ))}
       </div>
 
@@ -737,9 +800,14 @@ export default function Dashboard() {
         
         <div className="device-grid-wrapper" ref={gridWrapperRef} onScroll={updateScrollState}>
           <div className="device-grid">
-            {loading ? (
-              <div className="loading-state">Loading...</div>
+            {/* If it's loading OR there are 0 devices, keep spinning! */}
+            {loading || devices.length === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', width: '100%', gridColumn: '1 / -1' }}>
+                <div className="custom-spinner"></div>
+                <p style={{ marginTop: '16px', color: '#64748b', fontWeight: '600', fontSize: '15px' }}>Loading</p>
+              </div>
             ) : (
+              /* Only show cards once devices actually exist in the array */
               devices.map((device) => (
                 <DeviceCard key={device.id} device={device} onViewDetails={handleViewDetails} />
               ))
@@ -942,8 +1010,10 @@ export default function Dashboard() {
              </div>
           ))}
         </div>
-        </div>
-      )}
+            </div>
+          )}
+        </>
+      )} {/* <-- THIS CLOSES THE NEW LOADING CHECK */}
 
       {showDetailModal && modalData && (
         <>
