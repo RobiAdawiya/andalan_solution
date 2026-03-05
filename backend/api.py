@@ -1,3 +1,4 @@
+import os
 import jwt
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import FastAPI, HTTPException, Depends
@@ -38,7 +39,7 @@ DB_CONFIG = {
 def get_db_connection():
     return psycopg2.connect(**DB_CONFIG)
 
-SECRET_KEY = "Andalan_Solution_V.1"
+SECRET_KEY = os.getenv("SECRET_KEY")
 security = HTTPBearer()
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
