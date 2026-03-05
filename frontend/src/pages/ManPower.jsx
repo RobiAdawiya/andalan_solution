@@ -264,7 +264,7 @@ export default function ManPower() {
     try {
       const response = await fetch("/api/editmanpower", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${sessionStorage.getItem("token")}` },
         body: JSON.stringify({
           name: editingPerson.name,
           nik: editingPerson.nik,
@@ -303,7 +303,7 @@ export default function ManPower() {
     try {
       const response = await fetch("/api/add_manpower", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${sessionStorage.getItem("token")}` },
         body: JSON.stringify(addForm)
       });
       
@@ -344,7 +344,7 @@ export default function ManPower() {
         try {
           const response = await fetch("/api/delete_manpower", {
               method: "DELETE",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${sessionStorage.getItem("token")}` },
               body: JSON.stringify({ nik: mp.nik })
           });
           
