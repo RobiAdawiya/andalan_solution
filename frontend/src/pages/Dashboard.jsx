@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { 
   Monitor, Users, Wrench, ClipboardList, Calendar, 
   Activity, X, Download, Zap, Thermometer, Battery, TrendingUp, 
-  ChevronLeft, ChevronRight, SquareUser, Cog, Tablet, ThumbsUp, BriefcaseBusiness
+  ChevronLeft, ChevronRight, SquareUser, Bolt, Cog, Tablet, ThumbsUp, BriefcaseBusiness
 } from "lucide-react";
 import "../styles/dashboard.css";
 import Swal from "sweetalert2";
