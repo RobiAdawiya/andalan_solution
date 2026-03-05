@@ -74,9 +74,14 @@
 }
 
 .sidebar-footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-top: 1px solid #e2e8f0; /* Matches the line from the main footer! */
   background-color: #d3d3d3;
   color: #0b4a8b;
+  height: 60px;
+  box-sizing: border-box; /* Forces the 1px border to stay INSIDE the 60px limit */
+  display: flex;
+  align-items: stretch; /* Stretches the button to fill the space */
+  padding: 0;
 }
 
 .sidebar-user {
@@ -149,4 +154,9 @@
   background-color: #0b4a8b;
   color: white;
   border-color: #0b4a8b;
+}
+
+.logout-sidebar-btn {
+  height: 100%; /* Forces the button to be exactly 60px tall */
+  margin: 0;
 }

@@ -14,6 +14,7 @@ import "./App.css";
 import { changePassword } from "./services/api";
 import Swal from "sweetalert2";
 import { logoutUserAPI} from "./services/api";
+import efortech_logo from "../efortech_logo.png"
 
 function App() {
   const [isAuth, setIsAuth] = useState(() => sessionStorage.getItem("token") !== null);
@@ -296,23 +297,56 @@ function App() {
           // Sidebar will now use Links/NavLinks instead of onNavigate
           currentPage={location.pathname} 
           onLogout={handleLogout} 
-        />
+        /> 
+        <main 
+          className={`main-content ${sidebarOpen ? "shifted" : ""}`}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            minHeight: "calc(100vh - 60px)", 
+            paddingBottom: "0" 
+          }}
+        >
+          {/* wrap the Routes in a div with flex: 1. This forces the content area to grow and push the footer down! */}
+          <div style={{ flex: 1 }}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" />} />
+              <Route path="/login" element={<Navigate to="/dashboard" />} />
+              <Route path="/dashboard" element={<Dashboard username={username} />} />
+              <Route path="/device" element={<Device />} />
+              <Route path="/manpower" element={<ManPower />} />
+              <Route path="/parts" element={<Parts />} />
+              <Route path="/workorder" element={<WorkOrder />} />
+              <Route path="*" element={<div>Page Not Found</div>} />
+            </Routes>
+          </div>
 
-        <main className={`main-content ${sidebarOpen ? "shifted" : ""}`}>
-          <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" />} />
+          {/* --- FOOTER --- */}
+          <footer style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            height: "60px",       
+            padding: "0 30px",        
+            borderTop: "1px solid #e2e8f0",
+            backgroundColor: "transparent",
+            width: "100%",
+            boxSizing: "border-box"   
+          }}>
+            <span style={{ color: "#64748b", fontSize: "16px", fontWeight: "700" }}>
+              Andalan Fluid System By <strong>EFORTECH SOLUTION</strong>
+            </span>
             
-            {/* ADDED: If logged in user hits /login manually, send to dashboard */}
-            <Route path="/login" element={<Navigate to="/dashboard" />} />
+            <img 
+               src={efortech_logo} 
+              alt="efortech Logo" 
+              style={{ 
+                height: "28px", 
+              }} 
+            />
+          </footer>
+          {/* --- END FOOTER --- */}
 
-            <Route path="/dashboard" element={<Dashboard username={username} />} />
-            <Route path="/device" element={<Device />} />
-            <Route path="/manpower" element={<ManPower />} />
-            <Route path="/parts" element={<Parts />} />
-            <Route path="/workorder" element={<WorkOrder />} />
-            {/* Fallback route */}
-            <Route path="*" element={<div>Page Not Found</div>} />
-          </Routes>
         </main>
       </div>  
     </div>
