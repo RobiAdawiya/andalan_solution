@@ -369,8 +369,6 @@ async def post_addproduct(data: addproduct, username: str = Depends(verify_token
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        current_time = datetime.now(ZoneInfo("Asia/Jakarta"))
-
         # 1. Cek & Insert ke table product (Master)
         cur.execute("SELECT 1 FROM product WHERE machine_name=%s AND name_product=%s", 
                     (data.machine_name, data.name_product))
@@ -379,11 +377,11 @@ async def post_addproduct(data: addproduct, username: str = Depends(verify_token
                         (data.machine_name, data.name_product))
 
         # 2. Tangani Work Order
-        wo_num = data.wo_number.strip()
+        wo_num = data.wo_number.strip() if data.wo_number else ""
         if wo_num:
             cur.execute("SELECT 1 FROM work_orders WHERE wo_number = %s", (wo_num,))
             if not cur.fetchone():
-                cur.execute("INSERT INTO work_orders (wo_number, created_at) VALUES (%s, %s)", (wo_num, current_time))
+                cur.execute("INSERT INTO work_orders (wo_number, created_at) VALUES (%s, NOW())", (wo_num,))
                 
             cur.execute("""
                 INSERT INTO work_order_details (wo_number, machine_name, product_name)
@@ -393,14 +391,15 @@ async def post_addproduct(data: addproduct, username: str = Depends(verify_token
         # 3. Insert ke table log_product
         cur.execute("""
             INSERT INTO log_product (machine_name, name_product, name_manpower, created_at, action) 
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (data.machine_name, data.name_product, "admin", current_time, "stop"))
+            VALUES (%s, %s, %s, NOW(), %s)
+        """, (data.machine_name, data.name_product, "admin", "stop"))
 
         conn.commit()
         return {"status": "success", "message": "Product ditambahkan"}
 
     except Exception as e:
         conn.rollback()
+        print(f"DATABASE ERROR (ADD PRODUCT): {str(e)}") 
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         cur.close()
@@ -585,13 +584,17 @@ class DeviceUpdate(BaseModel):
     serial_number: str
 
 # 15. PUT EDIT DEVICE
+class DeviceUpdate(BaseModel):
+    machine_name: str
+    serial_number: str
+
 @app.put("/edit_device")
 async def edit_device(data: DeviceUpdate, username: str = Depends(verify_token)):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        # Cek apakah device ada
-        cur.execute("SELECT 1 FROM devices WHERE machine_name = %s AND serial_number = %s", (data.machine_name, data.serial_number))
+        # PERBAIKAN: Cukup cek apakah machine_name ada di database
+        cur.execute("SELECT 1 FROM devices WHERE machine_name = %s", (data.machine_name,))
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="Device tidak ditemukan")
 
@@ -604,6 +607,9 @@ async def edit_device(data: DeviceUpdate, username: str = Depends(verify_token))
         
         conn.commit()
         return {"status": "success", "message": "Serial number updated"}
+        
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
