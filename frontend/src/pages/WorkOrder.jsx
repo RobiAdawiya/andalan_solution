@@ -400,15 +400,16 @@ export default function WorkOrder() {
         </div>
       </div>
 
-      {/* GRID */}
-      <div className="wo-grid-container">
-         {loading ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', width: '100%' }}>
-                <div className="custom-spinner"></div>
-                <p style={{ marginTop: '16px', color: '#64748b', fontWeight: '600', fontSize: '15px' }}>Loading</p>
-              </div>
-        ) : filteredData.length === 0 ? (
-          /* --- TAMBAHAN TEKS JIKA KOSONG --- */
+      {/* CONTENT AREA */}
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', width: '100%' }}>
+          <div className="custom-spinner"></div>
+          <p style={{ marginTop: '16px', color: '#64748b', fontWeight: '600', fontSize: '15px' }}>Loading</p>
+        </div>
+      ) : (
+        <div className="wo-grid-container">
+          {filteredData.length === 0 ? (
+            /* --- TAMBAHAN TEKS JIKA KOSONG --- */
           <div style={{ 
             textAlign: "center", 
             color: "#999", 
@@ -469,11 +470,12 @@ export default function WorkOrder() {
               </div>
               <div className="wo-card-footer" style={{justifyContent:'center', padding:'10px'}}>
                  <button className="btn-view-details" onClick={() => openDetailModal(wo)}>View Details</button>
-              </div>
+             </div>
             </div>
           ))
         )}
-      </div>
+        </div>
+      )}
 
       {/* --- DETAIL MODAL --- */}
       {showDetailModal && selectedWO && (

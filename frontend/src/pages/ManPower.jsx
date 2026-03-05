@@ -384,17 +384,7 @@ export default function ManPower() {
     doc.text(`NIK : ${qrPayload.nik}`, 20, 170);
     doc.save(`QR_${qrPayload.nik}.pdf`);
   };
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', width: '100%' }}>
-        <div className="custom-spinner"></div>
-        <p style={{ marginTop: '20px', color: '#64748b', fontWeight: '600', fontSize: '18px' }}>
-          Loading
-        </p>
-      </div>
-    );
-  }
+  
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <div className="page-header">
@@ -441,9 +431,15 @@ export default function ManPower() {
       </div>
 
       <div className="table-container">
-        <table className="manpower-table">
-          <thead>
-            <tr>
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', width: '100%' }}>
+            <div className="custom-spinner"></div>
+            <p style={{ marginTop: '16px', color: '#64748b', fontWeight: '600', fontSize: '15px' }}>Loading</p>
+          </div>
+        ) : (
+          <table className="manpower-table">
+            <thead>
+              <tr>
               <th>No.</th>
               <th>Name</th>
               <th>NIK</th>
@@ -510,6 +506,7 @@ export default function ManPower() {
             )}
           </tbody>
         </table>
+        )}
       </div>
 
       <div className="pagination">

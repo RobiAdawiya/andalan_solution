@@ -370,18 +370,6 @@ export default function Parts() {
     doc.save(`QR_${qrPayload.name_product}_${qrPayload.machine_name}.pdf`);
   };
 
-  // --- 5. RENDER ---
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', width: '100%' }}>
-        <div className="custom-spinner"></div>
-        <p style={{ marginTop: '20px', color: '#64748b', fontWeight: '600', fontSize: '18px' }}>
-          Loading
-        </p>
-      </div>
-    );
-  }
-
   const getSortIcon = (columnName) => {
     if (sortConfig.key !== columnName) return <span style={{opacity: 0.3, marginLeft:'4px'}}>↕</span>;
     return sortConfig.direction === 'ascending' ? <span style={{marginLeft:'4px'}}>↑</span> : <span style={{marginLeft:'4px'}}>↓</span>;
@@ -426,9 +414,15 @@ export default function Parts() {
       </div>
 
       <div className="table-container">
-        <table className="parts-table">
-          <thead>
-            <tr>
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', width: '100%' }}>
+            <div className="custom-spinner"></div>
+            <p style={{ marginTop: '16px', color: '#64748b', fontWeight: '600', fontSize: '15px' }}>Loading</p>
+          </div>
+        ) : (
+          <table className="manpower-table">
+            <thead>
+              <tr>
               <th>No.</th>
               <th onClick={() => handleSort('wo_number')} style={{cursor: 'pointer', whiteSpace:'nowrap'}}>
                 WO Number {getSortIcon('wo_number')}
@@ -485,6 +479,7 @@ export default function Parts() {
             )}
           </tbody>
         </table>
+        )} {/* <--- THIS CLOSES THE LOADING CHECK */}
       </div>
 
       {/* PAGINATION */}

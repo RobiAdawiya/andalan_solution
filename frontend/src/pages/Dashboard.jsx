@@ -748,9 +748,7 @@ export default function Dashboard() {
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', width: '100%' }}>
           <div className="custom-spinner"></div>
-          <p style={{ marginTop: '20px', color: '#64748b', fontWeight: '600', fontSize: '15px' }}>
-            Loading
-          </p>
+          <p style={{ marginTop: '16px', color: '#64748b', fontWeight: '600', fontSize: '15px' }}>Loading</p>
         </div>
       ) : (
         <>
