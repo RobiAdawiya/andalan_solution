@@ -163,9 +163,10 @@ export default function Parts() {
         Swal.fire({ icon: 'success', title: 'Success!', text: 'Part added successfully!', timer: 2000, showConfirmButton: false });
         setShowAddModal(false);
         fetchInitialData(); 
-      } else {
-        Swal.fire('Error', 'Failed to add part.', 'error');
-      }
+          } else {
+            const errData = await response.json();
+            Swal.fire('Error', errData.detail || 'Failed to update part.', 'error');
+          }
     } catch (error) {
       Swal.fire('Error', 'Error connecting to server.', 'error');
     }
@@ -219,7 +220,8 @@ export default function Parts() {
             setShowEditModal(false);
             fetchInitialData(); 
           } else {
-            Swal.fire('Error', 'Failed to update part.', 'error');
+            const errData = await response.json();
+            Swal.fire('Error', errData.detail || 'Failed to update part.', 'error');
           }
         } catch (error) {
           Swal.fire('Error', 'Error connecting to server.', 'error');

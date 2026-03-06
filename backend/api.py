@@ -369,6 +369,18 @@ async def post_addproduct(data: addproduct, username: str = Depends(verify_token
     conn = get_db_connection()
     cur = conn.cursor()
     try:
+        # VALIDASI MACHINE NAME (CASE-INSENSITIVE)
+        cur.execute("SELECT machine_name FROM devices WHERE LOWER(machine_name) = LOWER(%s)", (data.machine_name,))
+        machine_row = cur.fetchone()
+        
+        if not machine_row:
+            # Jika tidak ada, hentikan proses dan kirim error ke Frontend
+            raise HTTPException(status_code=400, detail=f"Gagal! Mesin '{data.machine_name}' tidak terdaftar di Master Device.")
+        
+        # Jika ada, kita gunakan nama mesin asli dari database untuk memastikan case-nya seragam
+        valid_machine_name = machine_row[0]
+        data.machine_name = valid_machine_name
+
         # 1. Cek & Insert ke table product (Master)
         cur.execute("SELECT 1 FROM product WHERE machine_name=%s AND name_product=%s", 
                     (data.machine_name, data.name_product))
@@ -397,6 +409,9 @@ async def post_addproduct(data: addproduct, username: str = Depends(verify_token
         conn.commit()
         return {"status": "success", "message": "Product ditambahkan"}
 
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
         print(f"DATABASE ERROR (ADD PRODUCT): {str(e)}") 
@@ -485,6 +500,16 @@ async def put_editproduct(data: EditProduct, username: str = Depends(verify_toke
     conn = get_db_connection()
     cur = conn.cursor()
     try:
+        # VALIDASI NEW MACHINE NAME (CASE-INSENSITIVE)
+        cur.execute("SELECT machine_name FROM devices WHERE LOWER(machine_name) = LOWER(%s)", (data.new_machine_name,))
+        machine_row = cur.fetchone()
+        
+        if not machine_row:
+             raise HTTPException(status_code=400, detail=f"Gagal Edit! Mesin '{data.new_machine_name}' tidak terdaftar di Master Device.")
+             
+        valid_machine_name = machine_row[0]
+        data.new_machine_name = valid_machine_name
+
         # 1. Update Master Product
         cur.execute(
             "UPDATE product SET machine_name=%s, name_product=%s WHERE machine_name=%s AND name_product=%s",
@@ -513,12 +538,15 @@ async def put_editproduct(data: EditProduct, username: str = Depends(verify_toke
                 VALUES (%s, %s, %s)
             """, (wo_num, data.new_machine_name, data.new_name_product))
 
-        # 5. CLEANUP WO LAMA YANG KOSONG (Tetap sama)
+        # 5. CLEANUP WO LAMA YANG KOSONG
         cur.execute("DELETE FROM work_orders w WHERE NOT EXISTS (SELECT 1 FROM work_order_details wd WHERE wd.wo_number = w.wo_number)")
         conn.commit()
 
         return {"status": "success", "message": "Product berhasil diperbarui"}
 
+    except HTTPException:
+        conn.rollback()
+        raise
     except Exception as e:
         conn.rollback()
         print(f"DATABASE ERROR (EDIT PRODUCT): {str(e)}")
