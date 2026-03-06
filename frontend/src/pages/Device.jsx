@@ -20,6 +20,8 @@ export default function Device() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
+
   // --- 1. DATA FETCHING ---
   const fetchDevices = async () => {
     try {
@@ -40,15 +42,38 @@ export default function Device() {
 
   useEffect(() => { fetchDevices(); }, []);
 
+  // --- 3. FILTER, SORT & PAGINATION ---
+  const handleSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortedData = (data) => {
+    if (!sortConfig.key) return data;
+    
+    return [...data].sort((a, b) => {
+      const aValue = a[sortConfig.key] ? a[sortConfig.key].toLowerCase() : "";
+      const bValue = b[sortConfig.key] ? b[sortConfig.key].toLowerCase() : "";
+      
+      if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+      return 0;
+    });
+  };
+
   // --- 2. SEARCH & PAGINATION LOGIC ---
   const filteredDevices = devices.filter(d =>
     d.machine_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     d.serial_number?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalPages = Math.ceil(filteredDevices.length / rowsPerPage);
+  const sortedData = getSortedData(filteredDevices);
+  const totalPages = Math.ceil(sortedData.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
-  const currentData = filteredDevices.slice(startIndex, startIndex + rowsPerPage);
+  const currentData = sortedData.slice(startIndex, startIndex + rowsPerPage);
 
   const handlePageChange = (page) => {
     if (page >= 1 && page <= totalPages) setCurrentPage(page);
@@ -187,6 +212,11 @@ export default function Device() {
     });
   };
 
+   const getSortIcon = (columnName) => {
+    if (sortConfig.key !== columnName) return <span style={{opacity: 0.3, marginLeft:'4px'}}>↕</span>;
+    return sortConfig.direction === 'ascending' ? <span style={{marginLeft:'4px'}}>↑</span> : <span style={{marginLeft:'4px'}}>↓</span>;
+  }; 
+  
   return (
     <div className="device-container">
       {/* HEADER SECTION */}
@@ -241,15 +271,19 @@ export default function Device() {
             <thead>
               <tr>
                 <th className="text-center">No.</th>
-                <th>Device Name</th>
-                <th>Serial Number</th>
+                <th onClick={() => handleSort('machine_name')} style={{cursor: 'pointer', whiteSpace: 'nowrap'}}>
+                  Device Name {getSortIcon('machine_name')}
+                </th>
+                <th onClick={() => handleSort('serial_number')} style={{cursor: 'pointer', whiteSpace: 'nowrap'}}>
+                  Serial Number {getSortIcon('serial_number')}
+                </th>
                 <th className="text-center">Action</th>
               </tr>
             </thead>
             <tbody>
-              {currentData.length > 0 ? currentData.map((device) => (
+              {currentData.length > 0 ? currentData.map((device, index) => (
                 <tr key={device.no}>
-                  <td className="text-center">{device.no}</td>
+                  <td className="text-center">{startIndex + index + 1}</td>
                   <td>{device.machine_name}</td>
                   <td>{device.serial_number}</td>
                   <td>

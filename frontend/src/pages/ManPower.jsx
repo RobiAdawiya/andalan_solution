@@ -44,6 +44,9 @@ export default function ManPower() {
     position: ""
   });
 
+  // Sorting State
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
+
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [qrPayload, setQrPayload] = useState(null);
   const [qrGenerating, setQrGenerating] = useState(false);
@@ -83,17 +86,39 @@ export default function ManPower() {
     loadData();
   }, []);
 
+  // --- 3. FILTER, SORT & PAGINATION ---
+  const handleSort = (key) => {
+    let direction = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortedData = (data) => {
+    if (!sortConfig.key) return data;
+    
+    return [...data].sort((a, b) => {
+      const aValue = a[sortConfig.key] ? a[sortConfig.key].toLowerCase() : "";
+      const bValue = b[sortConfig.key] ? b[sortConfig.key].toLowerCase() : "";
+      
+      if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+      return 0;
+    });
+  };
+
   // --- 2. SEARCH & PAGINATION ---
   const filteredManPower = manPowerData.filter(p =>
     p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     String(p.nik).includes(searchQuery) ||
     p.position?.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const totalPages = Math.ceil(filteredManPower.length / rowsPerPage);
+  const sortedData = getSortedData(filteredManPower);
+  const totalPages = Math.ceil(sortedData.length / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
   const endIndex = startIndex + rowsPerPage;
-  const currentData = filteredManPower.slice(startIndex, endIndex);
+  const currentData = sortedData.slice(startIndex, endIndex);
 
   const handleRowsPerPageChange = (value) => {
     setRowsPerPage(Number(value));
@@ -261,7 +286,7 @@ export default function ManPower() {
       return;
     }
 
-    try {
+     try {
       const response = await fetch("/api/editmanpower", {
         method: "PUT",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${sessionStorage.getItem("token")}` },
@@ -384,7 +409,12 @@ export default function ManPower() {
     doc.text(`NIK : ${qrPayload.nik}`, 20, 170);
     doc.save(`QR_${qrPayload.nik}.pdf`);
   };
-  
+
+  const getSortIcon = (columnName) => {
+    if (sortConfig.key !== columnName) return <span style={{opacity: 0.3, marginLeft:'4px'}}>↕</span>;
+    return sortConfig.direction === 'ascending' ? <span style={{marginLeft:'4px'}}>↑</span> : <span style={{marginLeft:'4px'}}>↓</span>;
+  };
+
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <div className="page-header">
@@ -440,22 +470,30 @@ export default function ManPower() {
           <table className="manpower-table">
             <thead>
               <tr>
-              <th>No.</th>
-              <th>Name</th>
-              <th>NIK</th>
-              <th>Department</th>
-              <th>Position</th>
-              <th>Status</th>
-              <th className="text-center">Action</th>
-            </tr>
-          </thead>
+                <th>No.</th>
+                <th onClick={() => handleSort('name')} style={{cursor: 'pointer', whiteSpace: 'nowrap'}}>
+                  Name {getSortIcon('name')}
+                </th>
+                <th onClick={() => handleSort('nik')} style={{cursor: 'pointer', whiteSpace: 'nowrap'}}>
+                  NIK {getSortIcon('nik')}
+                </th>
+                <th onClick={() => handleSort('department')} style={{cursor: 'pointer', whiteSpace: 'nowrap'}}>
+                  Department {getSortIcon('department')}
+                </th>
+                <th onClick={() => handleSort('position')} style={{cursor: 'pointer', whiteSpace: 'nowrap'}}>
+                  Position {getSortIcon('position')}
+                </th>
+                <th>Status</th>
+                <th className="text-center">Action</th>
+              </tr>
+            </thead>
           <tbody>
             {currentData.length === 0 ? (
               <tr><td colSpan="7" style={{textAlign: 'center'}}>No data available</td></tr>
             ) : (
-              currentData.map((mp) => (
+              currentData.map((mp, index) => (
                 <tr key={mp.no}>
-                  <td>{mp.no}</td>
+                  <td>{startIndex + index + 1}</td>
                   <td>{mp.name}</td>
                   <td>{mp.nik}</td>
                   <td>{mp.department}</td>

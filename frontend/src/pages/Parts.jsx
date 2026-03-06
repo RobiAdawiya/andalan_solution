@@ -475,7 +475,7 @@ export default function Parts() {
                       <button className="action-btn btn-history" onClick={() => handleViewHistory(part)} title="History">
                         <History size={14} /> History
                       </button>
-                      <button className="action-btn btn-edit" style={{ backgroundColor: '#f59e0b' }} onClick={() => handleEdit(part)} title="Edit">
+                      <button className="action-btn btn-edit"  onClick={() => handleEdit(part)} title="Edit">
                         <Edit size={14} /> Edit
                       </button>
                       <button className="action-btn btn-delete" onClick={() => handleDelete(part)} title="Delete">

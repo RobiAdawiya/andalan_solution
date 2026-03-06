@@ -58,31 +58,33 @@
 
 .search-wrapper {
   position: relative;
-  min-width: 300px;
+  flex: 1;
+  max-width: 600px;
+  min-width: 200px;
 }
 
 .search-input {
   width: 100%;
-  padding: 10px 15px 10px 40px;
-  border: 1px solid #ccc;
+  padding: 10px 12px 10px 40px;
+  border: 1px solid #ddd;
   border-radius: 8px;
-  background: white;
-  outline: none;
-  font-size: 14px;
-  transition: all 0.3s;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
 }
 
 .search-input:focus {
-  border-color: var(--primary-blue);
+  outline: none;
+  border-color: #0b4a8b;
   box-shadow: 0 0 0 3px rgba(11, 74, 139, 0.1);
 }
 
 .search-icon {
   position: absolute;
-  left: 12px;
+  left: 15px;
   top: 50%;
   transform: translateY(-50%);
   color: #999;
+  pointer-events: none;
 }
 
 .btn-add {
@@ -252,8 +254,8 @@
   color: #666;
   transition: 0.2s;
 }
-.btn-edit:hover { color: #f59e0b; border-color: #f59e0b; background: #fff9db; }
-.btn-delete:hover { color: #fa5252; border-color: #fa5252; background: #fff5f5; }
+/* .btn-edit:hover { color: #ffc107; border-color: #e0a800; background: #fff9db; }
+.btn-delete:hover { color: #fa5252; border-color: #da190b; background: #fff5f5; } */
 
 /* --- MODAL SYSTEM --- */
 .modal-overlay {
