@@ -15,7 +15,7 @@ import dayjs from 'dayjs';
 // --- CONFIG & HELPERS ---
 const STATUS_CONFIG = {
   "WORKING": { label: "WORKING", color: "#00BCD4" },    
-  "NO WORKING": { label: "NO WORKING", color: "#FF5252" }, 
+  "NOT WORKING": { label: "NOT WORKING", color: "#FF5252" }, 
   "PENDING": { label: "NO DATA", color: "#FFC107" }, 
   "NO_DATA": { label: "NO DATA", color: "#D3D3D3" }
 };
@@ -309,7 +309,7 @@ export default function WorkOrder() {
       // Use safe UTC parser for sorting logs
       const logs = (rawLogs || []).sort((a, b) => parseUTC(a.time).getTime() - parseUTC(b.time).getTime());
       
-      const mapStatus = (action) => action?.toLowerCase() === 'start' ? 'WORKING' : 'NO WORKING';
+      const mapStatus = (action) => action?.toLowerCase() === 'start' ? 'WORKING' : 'NOT WORKING';
 
       let currentTime = filterStart;
       
@@ -460,7 +460,7 @@ export default function WorkOrder() {
                         <div key={i} style={badgeStyle}>
                           <span style={{flex:1}}>{p.name}</span>
                           <span style={{fontSize:'9px', opacity:0.8}}>
-                              {isWorking ? 'WORKING' : 'NO WORKING'}
+                              {isWorking ? 'WORKING' : 'NOT WORKING'}
                           </span>
                         </div>
                       )
@@ -560,7 +560,7 @@ export default function WorkOrder() {
                                 
                                 const stats = timelineSegments.reduce((acc, seg) => {
                                     if(seg.status==="WORKING") acc.start += seg.duration; 
-                                    if(seg.status==="NO WORKING") acc.stop += seg.duration;
+                                    if(seg.status==="NOT WORKING") acc.stop += seg.duration;
                                     return acc;
                                 }, {start:0, stop:0});
                                 stats.total = stats.start + stats.stop;
@@ -572,7 +572,7 @@ export default function WorkOrder() {
                                       </div>
                                       <div style={{display:'flex', gap:'20px', fontSize:'11px', marginBottom:'5px', borderBottom:'1px dashed #eee', paddingBottom:'5px'}}>
                                          <span style={{color: STATUS_CONFIG["WORKING"].color, fontWeight:'bold'}}>WORKING: {formatTime(stats.start)}</span>
-                                         <span style={{color: STATUS_CONFIG["NO WORKING"].color, fontWeight:'bold'}}>NO WORKING: {formatTime(stats.stop)}</span>
+                                         <span style={{color: STATUS_CONFIG["NOT WORKING"].color, fontWeight:'bold'}}>NOT WORKING: {formatTime(stats.stop)}</span>
                                          <span style={{color: '#666', fontWeight:'bold'}}>TOTAL: {formatTime(stats.total)}</span>
                                       </div>
                                       <div className="timeline-track">
