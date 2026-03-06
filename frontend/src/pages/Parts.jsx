@@ -159,14 +159,18 @@ export default function Parts() {
         body: JSON.stringify(formData)
       });
 
-      if (response.ok) {
+      // Parse the JSON data first
+      const data = await response.json();
+
+      if (response.ok && data.status !== "error") {
+        // It's a real success
         Swal.fire({ icon: 'success', title: 'Success!', text: 'Part added successfully!', timer: 2000, showConfirmButton: false });
         setShowAddModal(false);
         fetchInitialData(); 
-          } else {
-            const errData = await response.json();
-            Swal.fire('Error', errData.detail || 'Failed to update part.', 'error');
-          }
+      } else {
+        // It's our custom soft error (or another error from the server)
+        Swal.fire('Warning', data.detail || 'Failed to add part.', 'warning');
+      }
     } catch (error) {
       Swal.fire('Error', 'Error connecting to server.', 'error');
     }
@@ -186,7 +190,6 @@ export default function Parts() {
   const submitEditPart = async (e) => {
         e.preventDefault();
         
-        // Pengecekan apakah ada perubahan
         if (
           formData.machine_name === editingPart.machine_name &&
           formData.name_product === editingPart.name_product &&
@@ -215,13 +218,17 @@ export default function Parts() {
             })
           });
 
-          if (response.ok) {
+          // Parse the JSON data first
+          const data = await response.json();
+
+          if (response.ok && data.status !== "error") {
+             // It's a real success
             Swal.fire({ icon: 'success', title: 'Updated!', text: 'Part updated successfully!', timer: 2000, showConfirmButton: false });
             setShowEditModal(false);
             fetchInitialData(); 
           } else {
-            const errData = await response.json();
-            Swal.fire('Error', errData.detail || 'Failed to update part.', 'error');
+             // It's our custom soft error
+            Swal.fire('Warning', data.detail || 'Failed to update part.', 'warning');
           }
         } catch (error) {
           Swal.fire('Error', 'Error connecting to server.', 'error');

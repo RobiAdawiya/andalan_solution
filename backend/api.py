@@ -375,7 +375,7 @@ async def post_addproduct(data: addproduct, username: str = Depends(verify_token
         
         if not machine_row:
             # Jika tidak ada, hentikan proses dan kirim error ke Frontend
-            raise HTTPException(status_code=400, detail=f"Gagal! Mesin '{data.machine_name}' tidak terdaftar di Master Device.")
+            return {"status": "error", "detail": f"Machine '{data.machine_name}' unregistered"}
         
         # Jika ada, kita gunakan nama mesin asli dari database untuk memastikan case-nya seragam
         valid_machine_name = machine_row[0]
@@ -505,7 +505,7 @@ async def put_editproduct(data: EditProduct, username: str = Depends(verify_toke
         machine_row = cur.fetchone()
         
         if not machine_row:
-             raise HTTPException(status_code=400, detail=f"Gagal Edit! Mesin '{data.new_machine_name}' tidak terdaftar di Master Device.")
+             return {"status": "error", "detail": f"Machine '{data.new_machine_name}' unregistered"}
              
         valid_machine_name = machine_row[0]
         data.new_machine_name = valid_machine_name
